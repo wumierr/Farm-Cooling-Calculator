@@ -156,6 +156,43 @@
   }
 }
 
+/* 动画与过渡 — 提升交互精致度 */
+@layer utilities {
+  /* 最优卡片数字过渡 */
+  .animate-value-change {
+    animation: valuePulse 0.4s ease;
+  }
+  @keyframes valuePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  /* 卡片入场淡入 */
+  .animate-fade-in {
+    animation: fadeInUp 0.35s ease both;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  /* 滑入提示 */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease both;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  /* 脉冲呼吸（用于警告标识） */
+  .animate-pulse-soft {
+    animation: pulseSoft 2s ease-in-out infinite;
+  }
+  @keyframes pulseSoft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+}
+
 /* 打印样式 — 作业处方单 */
 @media print {
   .no-print { display: none !important; }

@@ -26,6 +26,7 @@ export function ResultChart() {
 
   const chartConfig = {
     Y: { label: '综合效益 Y', color: 'var(--chart-1)' },
+    A_rel: { label: '光合保留率 A_rel', color: 'var(--chart-3)' },
   }
 
   if (!data.length) {
@@ -58,7 +59,7 @@ export function ResultChart() {
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[340px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+            <LineChart data={data} margin={{ top: 8, right: 24, bottom: 8, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="Rlabel"
@@ -68,10 +69,20 @@ export function ResultChart() {
                 label={{ value: '遮阳率 R', position: 'insideBottom', offset: -2, fontSize: 12 }}
               />
               <YAxis
+                yAxisId="left"
                 domain={[0, 1]}
-                stroke="var(--muted-foreground)"
+                stroke="var(--chart-1)"
                 fontSize={11}
                 label={{ value: 'Y', angle: -90, position: 'insideLeft', fontSize: 12 }}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 1]}
+                stroke="var(--chart-3)"
+                fontSize={11}
+                tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+                label={{ value: 'A_rel', angle: 90, position: 'insideRight', fontSize: 12 }}
               />
               <ChartTooltip
                 content={
@@ -107,12 +118,25 @@ export function ResultChart() {
                 />
               )}
               <Line
+                yAxisId="left"
                 type="monotone"
                 dataKey="Y"
+                name="综合效益 Y"
                 stroke="var(--chart-1)"
                 strokeWidth={2.5}
                 dot={false}
                 activeDot={{ r: 5 }}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="A_rel"
+                name="光合保留率"
+                stroke="var(--chart-3)"
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                dot={false}
+                opacity={0.7}
               />
               {/* 策略点标记 */}
               {strategies.map((s) => {
@@ -121,6 +145,7 @@ export function ResultChart() {
                 return (
                   <ReferenceDot
                     key={s.id}
+                    yAxisId="left"
                     x={datum.Rlabel}
                     y={s.data.Y}
                     r={6}
@@ -133,20 +158,26 @@ export function ResultChart() {
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
-        {/* 策略图例 */}
-        {strategies.length > 0 && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
-            {strategies.map((s) => (
-              <div key={s.id} className="flex items-center gap-1.5">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full border-2 border-background"
-                  style={{ backgroundColor: s.color }}
-                />
-                <span className="text-muted-foreground">{s.name}</span>
-              </div>
-            ))}
+        {/* 图例：曲线 + 策略点 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5" style={{ backgroundColor: 'var(--chart-1)' }} />
+            <span className="text-muted-foreground">综合效益 Y</span>
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--chart-3)' }} />
+            <span className="text-muted-foreground">光合保留率 A_rel</span>
+          </div>
+          {strategies.map((s) => (
+            <div key={s.id} className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full border-2 border-background"
+                style={{ backgroundColor: s.color }}
+              />
+              <span className="text-muted-foreground">{s.name}</span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

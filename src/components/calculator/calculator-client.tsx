@@ -1,13 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { Grape, Github } from 'lucide-react'
+import { Grape } from 'lucide-react'
 import { useCalculatorStore } from './store'
 import { InputPanel } from './input-panel'
 import { OutputPanel } from './output-panel'
 import { ThemeToggle } from './theme-toggle'
 import { HelpDialog } from './help-dialog'
 import { RecipeManager } from './recipe-manager'
+import { MultiDayDialog } from './multi-day-dialog'
+import { PrescriptionExport } from './prescription-export'
 import { Button } from '@/components/ui/button'
 
 export function CalculatorClient() {
@@ -37,6 +39,8 @@ export function CalculatorClient() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <PrescriptionExport />
+            <MultiDayDialog />
             <RecipeManager />
             <HelpDialog />
             <ThemeToggle />

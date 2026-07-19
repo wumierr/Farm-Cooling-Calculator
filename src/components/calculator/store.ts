@@ -153,7 +153,9 @@ export const useCalculatorStore = create<CalculatorState>()(
           }
         }
 
-        const costBenefit = basePoint ? calcCostBenefit(basePoint, params, advice.detail) : null
+        const costBenefit = basePoint
+          ? calcCostBenefit(basePoint, params, advice.detail, output.baseline)
+          : null
 
         set({
           validation,

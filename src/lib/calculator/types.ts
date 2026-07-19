@@ -125,6 +125,8 @@ export interface OptimizeOutput {
   optimum: ResultPoint | null;
   plateau: Plateau | null;
   bestIndex: number;
+  /** R=0 基准点（不施用降温剂），用于净收益分析的精确对照 */
+  baseline: ResultPoint | null;
   error: string | null;
 }
 

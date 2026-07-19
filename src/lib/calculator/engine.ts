@@ -341,10 +341,27 @@ export function findOptimalR(params: CalcParams): OptimizeOutput {
   const baseA = calcPhotosynth(0, LSP, LCP, Imax, D);
   if (baseA === 0) {
     return {
-      results: [], optimum: null, plateau: null, bestIndex: -1,
+      results: [], optimum: null, plateau: null, bestIndex: -1, baseline: null,
       error: '基准光合量为零，请检查 LSP/LCP/Imax 参数',
     };
   }
+
+  // ── R=0 基准点（不施用降温剂）精确计算 ──
+  // 用于净收益分析的真实对照：不施用时 HHA/L 为多少
+  const baselineCooled = getCooledTemps(baseTemps, solar, 0);
+  const baselineHHA = calcHHA(baselineCooled, T0, RH);
+  const baselineL = calcLossRate(baselineHHA);
+  const baselineY = Math.max(0, Math.min(1, 1 * (1 - baselineL)));
+  const baseline: ResultPoint = {
+    R: 0,
+    Y: baselineY,
+    A_rel: 1,
+    L: baselineL,
+    HHA: Math.round(baselineHHA * 10) / 10,
+    Tmax_cooled: +Tmax.toFixed(1),
+    deltaT: 0,
+    S_total: null,
+  };
 
   // 光谱模式预计算（O(1) 乘法替代循环内样条+积分）
   let K_solar: number | null = null;
@@ -422,7 +439,7 @@ export function findOptimalR(params: CalcParams): OptimizeOutput {
     optimum = results[bestIndex];
   }
 
-  return { results, optimum, plateau, bestIndex, error: null };
+  return { results, optimum, plateau, bestIndex, baseline, error: null };
 }
 
 /** 安全省钱策略：近优平台 1/4 分位；

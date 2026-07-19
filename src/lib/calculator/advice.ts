@@ -361,18 +361,24 @@ export interface CostBenefit {
   baselineLoss: number;
   /** 施用后产量损失率 */
   afterLoss: number;
+  /** 不施用时的综合效益 Y（用于对比） */
+  baselineY: number;
+  /** 施用后的综合效益 Y */
+  afterY: number;
 }
 
-/** 计算某策略相对"不施用"的净收益 */
+/** 计算某策略相对"不施用"的净收益
+ *  使用 findOptimalR 返回的 baseline（R=0 精确点）作为对照 */
 export function calcCostBenefit(
   point: ResultPoint, params: CalcParams, adviceDetail: AdviceResult['detail'],
+  baseline?: ResultPoint | null,
 ): CostBenefit | null {
   if (!adviceDetail) return null;
   const totalYield = (params.expectedYield || 0) * (params.sprayArea || 1);
-  // 不施用时（R=0）：估算产量损失（用 HHA 模型，但此处简化用 afterLoss 反推）
-  // 由于 results[0] 是 R=0.10 而非 R=0，这里用一个近似：baselineLoss 取 afterLoss 的 2-3 倍上限
-  // 更精确做法：在 findOptimalR 时同时记录 R=0 基准。这里用保守估计。
-  const baselineLoss = Math.min(0.85, point.L + 0.3); // 保守：不施用至少多损失 30%
+  // 精确基准：R=0 时的 HHA/L（来自 findOptimalR 的 baseline 字段）
+  // 若无 baseline（兼容旧调用），退化为保守估计
+  const baselineLoss = baseline ? baseline.L : Math.min(0.85, point.L + 0.3);
+  const baselineY = baseline ? baseline.Y : 1 - baselineLoss;
   const savedYieldKg = totalYield * (baselineLoss - point.L);
   const savedRevenue = savedYieldKg * (params.grapePrice || 0);
   const powderCost = adviceDetail.powderKg * (params.powderPrice || 0);
@@ -383,5 +389,7 @@ export function calcCostBenefit(
     netBenefit: savedRevenue - powderCost,
     baselineLoss,
     afterLoss: point.L,
+    baselineY,
+    afterY: point.Y,
   };
 }

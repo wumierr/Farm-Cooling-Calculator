@@ -54,7 +54,7 @@ function OptimumCard() {
   const hasPlateau = plateau && Math.abs(plateau.rMax - plateau.rMin) > 0.005
 
   return (
-    <Card className="border-2 border-primary/30 bg-gradient-to-br from-accent/40 to-accent/10">
+    <Card className="border-2 border-primary/30 bg-gradient-to-br from-accent/40 to-accent/10 animate-fade-in">
       <CardContent className="pt-5 text-center">
         <div className="text-xs text-muted-foreground mb-1">
           {isSpectrum ? '最优总遮阳率 S_total' : '最优遮阳率 S_opt'}
@@ -211,12 +211,36 @@ function DetailTable() {
         {/* 净收益分析 */}
         {costBenefit && (
           <div className={cn(
-            'mt-3 rounded-md border p-3 space-y-1.5 text-xs',
+            'mt-3 rounded-md border p-3 space-y-2 text-xs',
             costBenefit.netBenefit >= 0 ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5',
           )}>
             <div className="font-semibold flex items-center gap-1.5">
               <TrendingUp className="h-3.5 w-3.5" />
-              净收益分析（相对不施用）
+              净收益分析（相对不施用降温剂）
+            </div>
+            {/* 不施用 vs 施用 对比 */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded bg-muted/40 p-1.5">
+                <div className="text-[10px] text-muted-foreground">不施用</div>
+                <div className="font-semibold tabular-nums text-destructive">
+                  L={(costBenefit.baselineLoss * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-muted-foreground tabular-nums">
+                  Y={costBenefit.baselineY.toFixed(3)}
+                </div>
+              </div>
+              <div className="flex items-center justify-center text-muted-foreground">
+                →
+              </div>
+              <div className="rounded bg-primary/10 p-1.5">
+                <div className="text-[10px] text-muted-foreground">施用后</div>
+                <div className="font-semibold tabular-nums text-primary">
+                  L={(costBenefit.afterLoss * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-muted-foreground tabular-nums">
+                  Y={costBenefit.afterY.toFixed(3)}
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
               <span>挽回产量损失:</span>
@@ -231,7 +255,7 @@ function DetailTable() {
               <span>粉剂成本:</span>
               <span className="text-right tabular-nums text-foreground">−¥{costBenefit.powderCost.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between font-semibold">
+            <div className="flex justify-between font-semibold pt-1 border-t border-border/40">
               <span>净收益:</span>
               <span className={cn('tabular-nums', costBenefit.netBenefit >= 0 ? 'text-primary' : 'text-destructive')}>
                 {costBenefit.netBenefit >= 0 ? '+' : ''}¥{costBenefit.netBenefit.toFixed(2)}

@@ -15,6 +15,7 @@ export {
   validateParams, calcCostBenefit,
 } from './advice';
 export type { CostBenefit } from './advice';
+export * from './multi-day';
 
 import type { CalcParams } from './types';
 import {

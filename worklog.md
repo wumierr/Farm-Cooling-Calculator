@@ -112,5 +112,98 @@ src/
    ├─ theme-provider.tsx     # next-themes 包装
    ├─ theme-toggle.tsx       # 暗/亮切换按钮
    ├─ help-dialog.tsx        # 使用说明（4 标签页）
-   └─ recipe-manager.tsx     # 配方保存/载入/导入/导出
+   ├─ recipe-manager.tsx     # 配方保存/载入/导入/导出
+   ├─ spectrum-editor.tsx    # 可视化光谱拖拽编辑器（SVG）★v2.1新增
+   ├─ multi-day-dialog.tsx   # 多日预报批量计算弹窗 ★v2.1新增
+   └─ prescription-export.tsx # 作业处方单打印导出 ★v2.1新增
 ```
+
+---
+
+## v2.1 迭代记录（2026-07-19 cron 第 1 轮）
+
+### 项目当前状态：✅ 稳定可用，功能持续丰富
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：浅色/暗色、光谱拖拽、多日预报、处方单导出均验证
+
+### 本轮完成的改进
+
+#### 1. P0 算法修复：R=0 基准点精确计算
+- **问题**：原 `calcCostBenefit` 用 `point.L + 0.3` 近似不施用时的损失率，不精确
+- **修复**：`findOptimalR` 新增 `baseline` 字段，精确计算 R=0 时的 HHA/L/Y
+- `calcCostBenefit` 接收 baseline 参数，净收益分析现在基于真实对照
+- CostBenefit 接口新增 `baselineY`/`afterY` 字段
+- UI 新增"不施用 → 施用后"三栏对比卡（L% / Y 值对照）
+
+#### 2. P0 新功能：可视化光谱拖拽编辑器（SVG）
+- **替换**：原 JSON 文本框 → 交互式 SVG 拖拽编辑器
+- **特性**：
+  - 7 个可拖拽控制点（pointer events，支持触屏）
+  - 双击空白添加控制点，hover 显示删除按钮（×）
+  - 实时 Fritsch-Carlson 样条插值曲线 + 填充
+  - 背景叠加：太阳光谱（黄色填充）、植物光合响应（绿色虚线）
+  - PAR 区域（400-700nm）高亮标识
+  - X 轴下方可见光彩虹色条（波长→RGB 映射）
+  - 实时显示 S_total / τ_PAR 积分结果
+  - 图例 + 坐标轴 + 拖拽时数值气泡提示
+- 文件：`src/components/calculator/spectrum-editor.tsx`（~280 行）
+
+#### 3. P1 新功能：多日预报批量计算
+- **场景**：种植户拿到未来 N 天天气预报，决定是否喷洒及最优 R
+- **引擎**：`src/lib/calculator/multi-day.ts`
+  - `calcMultiDay(weather, R, params)` — 逐日 HHA + 累积 HHA + 累积损失（非线性查表）
+  - `findOptimalMultiDayR` — 搜索最优 R（加权 avgY - 0.05×超温天数）
+  - `generateDefaultWeek` — 基于当前参数生成 7 天波动预报
+- **UI**：`multi-day-dialog.tsx`
+  - 逐日天气输入表（日期/Tmax/Tmin/D/Imax/RH，可增删）
+  - R 滑块 + "最优"自动应用按钮
+  - 4 指标卡（累积HHA / 累积损失 / 平均Y / 超温天数，含基准对照）
+  - 减损收益汇总（损失率下降 / 挽回产量 / 挽回收益）
+  - 逐日详情表 + 超温警告
+- **验证**：7 天预报，R=80% 最优，挽回 1075kg 产量 / ¥8603 收益
+
+#### 4. P2 新功能：作业处方单打印导出
+- **方式**：`window.open` + `window.print()`（离线可用，田间友好）
+- **内容**：推荐遮阳率大字卡 + 配比建议 + 作业参数表 + 策略对比 + 净收益分析 + 关键参数 + 签字栏
+- **样式**：A4 打印优化，农业绿主题，@page margin 12mm
+- 用户可"另存为 PDF"或直接打印
+
+#### 5. 样式细节增强
+- 新增 4 个 CSS 动画：`animate-value-change`（数字脉冲）、`animate-fade-in`（卡片淡入）、`animate-slide-in`（滑入）、`animate-pulse-soft`（呼吸）
+- 最优卡片添加 `animate-fade-in` 入场动画
+- 图表升级为**双 Y 轴**：左轴 Y（综合效益，实线）+ 右轴 A_rel（光合保留率，虚线）
+- 图例扩展：曲线图例 + 策略点图例统一展示
+- 暗色模式输入框文字提亮（oklch 0.97）
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| R=0 基准净收益对照 | ✅ 不施用 L=72% → 施用 L=0%，Y 0.28→0.99 |
+| 光谱拖拽编辑器 | ✅ VLM：曲线/控制点/网格清晰，7 控制点可拖拽 |
+| 光谱积分值 | ✅ S_total=49.5%, τ_PAR=68.1% 实时更新 |
+| 多日预报 7 天 | ✅ 累积 HHA / 超温天数 / 减损收益正确计算 |
+| 处方单导出 | ✅ 新窗口打开，标题正确，含打印脚本 |
+| 双 Y 轴图表 | ✅ VLM：双轴清晰，曲线与图例完整 |
+| 暗色模式光谱 | ✅ VLM：深色下曲线/控制点/彩虹条均清晰 |
+| 控制台错误 | ✅ 仅 Recharts 宽度警告（cosmetic，无功能影响）|
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/lib/calculator/
+├─ multi-day.ts              # ★v2.1 多日预报引擎
+└─ (engine.ts 新增 baseline 字段)
+src/components/calculator/
+├─ spectrum-editor.tsx       # ★v2.1 可视化光谱拖拽编辑器
+├─ multi-day-dialog.tsx      # ★v2.1 多日预报弹窗
+└─ prescription-export.tsx   # ★v2.1 处方单打印导出
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线支持（service worker + manifest，田间可用性）
+2. **P1**：光谱预设库（白涂剂/红涂剂/遮阳网等典型曲线一键加载）
+3. **P2**：更多品种预设（藤稔、红提、户太八号等）
+4. **P2**：图表点击交互（点击曲线添加自定义策略点，原 HTML 版有此功能）
+5. **P2**：处方单 PDF 服务端生成（当前为客户端打印，服务端可更精美）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

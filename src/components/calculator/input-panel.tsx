@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion'
 import { useCalculatorStore } from './store'
+import { SpectrumEditor as VisualSpectrumEditor } from './spectrum-editor'
 import { PRESETS } from '@/lib/calculator'
-import type { PresetKey, ProductRow, KMappingRow, SpectrumPoint, CalcParams } from '@/lib/calculator'
+import type { PresetKey, ProductRow, KMappingRow, CalcParams } from '@/lib/calculator'
 import { cn } from '@/lib/utils'
 
 /* ── 通用数字输入行 ── */
@@ -256,55 +256,7 @@ function KMappingEditor() {
   )
 }
 
-/* ── 光谱控制点编辑器 ── */
-function SpectrumEditor() {
-  const { params, setParams } = useCalculatorStore()
-  const [text, setText] = React.useState('')
-
-  React.useEffect(() => {
-    setText(JSON.stringify(params.spectrumPoints, null, 0))
-  }, [params.spectrumPoints])
-
-  const apply = () => {
-    try {
-      const parsed = JSON.parse(text)
-      if (Array.isArray(parsed) && parsed.every((p) => 'x' in p && 'y' in p)) {
-        setParams({ spectrumPoints: parsed as SpectrumPoint[] })
-      } else {
-        throw new Error('格式错误')
-      }
-    } catch {
-      // 静默
-    }
-  }
-
-  const reset = () => {
-    import('@/lib/calculator').then(({ CONFIG }) => {
-      setParams({ spectrumPoints: CONFIG.SPECTRAL_DEFAULT_CONTROLS.map((p) => ({ ...p })) })
-    })
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">光谱控制点（波长 nm / 反射率 0-1）</span>
-        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={reset}>
-          <RotateCcw className="h-3 w-3 mr-1" /> 恢复默认
-        </Button>
-      </div>
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={apply}
-        className="font-mono text-[11px] h-24 scrollbar-thin"
-        placeholder='[{"x":380,"y":0.15},...]'
-      />
-      <p className="text-[10px] text-muted-foreground">
-        编辑后失焦自动应用。建议 5-7 个控制点覆盖 380-1100nm。白涂剂典型：PAR 低反射、IR 高反射。
-      </p>
-    </div>
-  )
-}
+/* ── 光谱编辑器（可视化拖拽版，实现在 spectrum-editor.tsx） ── */
 
 /* ── 主输入面板 ── */
 export function InputPanel() {
@@ -403,7 +355,7 @@ export function InputPanel() {
                   </Label>
                 </RadioGroup>
                 <ProductTableEditor />
-                {isSpectral && <SpectrumEditor />}
+                {isSpectral && <VisualSpectrumEditor />}
               </>
             ) : (
               <>
