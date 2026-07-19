@@ -633,3 +633,84 @@ src/components/calculator/
 5. **P2**：成本效益图盈亏区间着色（netBenefit>0 绿色面积，<0 红色面积）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.7 迭代记录（2026-07-19 cron 第 7 轮）
+
+### 项目当前状态：✅ 稳定可用，A/B 叠加图 + 历史导出 + 盈亏着色 + 状态指示
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：A/B 叠加图、CSV/JSON 导出、盈亏区间着色、实时状态指示均验证
+
+### 本轮完成的改进
+
+#### 1. P2 新功能：A/B 对比图示化（Y 曲线叠加）
+- **compare-dialog.tsx** 新增 Recharts 叠加图：
+  - Snapshot 接口新增 `results: ResultPoint[]` 字段（完整曲线）
+  - SNAP_KEY 升级到 v2
+  - chartData useMemo 合并 A/B 两条曲线的 Y 值
+  - 双 Line 叠加：A 绿色(#2d6a4f) + B 红色(#c0392b)
+  - 双 ReferenceLine 标记 A/B 最优点
+  - 图例显示品种名
+  - tooltip 显示 A/B 品种 Y 值
+- **验证**：A=克瑞森 vs B=夏黑，两条曲线叠加显示，最优点参考线清晰
+
+#### 2. P2 新功能：历史记录导出 CSV/JSON
+- **history-dialog.tsx** 新增导出下拉菜单（DropdownMenu）：
+  - CSV (Excel)：16 列（时间/类型/品种/R/Y/棚温/降温/损失率/净收益/Tmax/Tmin/D/Imax/RH/面积/模式）
+  - 添加 BOM (\uFEFF) 避免中文乱码
+  - JSON (完整数据)：含 exportedAt/version/count/entries
+  - 文件名含日期：`计算历史_2026-07-19.csv`
+- **验证**：点击 CSV → toast "已导出 N 条记录 (CSV)"
+
+#### 3. P2 样式：成本效益图盈亏区间着色
+- **advice.ts** CostBenefitPoint 新增 `profitArea` / `lossArea` 字段：
+  - profitArea: netBenefit > 0 时为 netBenefit，否则 0
+  - lossArea: netBenefit < 0 时为 netBenefit，否则 0
+- **cost-benefit-chart.tsx** 新增两个 Area：
+  - 盈利区间（chart-1 绿色，25% 透明）
+  - 亏损区间（destructive 红色，25% 透明）
+  - 挽回收益面积透明度降为 10%（避免与盈亏区重叠）
+- 新增图例：盈利区间 / 亏损区间 / 净收益 / 粉剂成本
+
+#### 4. P2 功能：实时计算状态指示器
+- **calculator-client.tsx** 标题栏新增状态徽章：
+  - `isReady`（output.optimum 存在）：绿色"实时"徽章 + animate-pulse-soft 圆点
+  - `hasError`（validation 错误或 output.error）：红色"参数异常"徽章
+  - 无状态时不显示徽章
+- **验证**：页面加载后显示"实时"绿色徽章
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| A/B 叠加图 | ✅ 两条 Y 曲线叠加，A 绿 B 红，最优点参考线 |
+| A/B 快照含 results | ✅ 完整曲线存储到 localStorage |
+| 历史导出 CSV | ✅ toast "已导出 N 条记录 (CSV)"，含 BOM |
+| 历史导出 JSON | ✅ 完整数据含 exportedAt/version |
+| 盈亏区间着色 | ✅ 绿色盈利面积 + 红色亏损面积 |
+| 成本图图例 | ✅ 盈利/亏损/净收益/粉剂成本 4 项 |
+| 实时状态指示 | ✅ "实时"绿色徽章 + 脉冲圆点 |
+| 参数异常指示 | ✅ 红色"参数异常"徽章 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/lib/calculator/
+└─ advice.ts                  # ★v2.7 CostBenefitPoint 新增 profitArea/lossArea
+src/components/calculator/
+├─ compare-dialog.tsx         # ★v2.7 Recharts 叠加图 + results 字段
+├─ history-dialog.tsx         # ★v2.7 CSV/JSON 导出下拉菜单
+├─ cost-benefit-chart.tsx     # ★v2.7 盈亏区间 Area + 图例
+└─ calculator-client.tsx      # ★v2.7 实时/异常状态徽章
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比盈亏分析（对比两场景的净收益差异）
+4. **P2**：历史记录导入（从 CSV/JSON 恢复）
+5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

@@ -15,12 +15,16 @@ import { CompareDialog } from './compare-dialog'
 import { Button } from '@/components/ui/button'
 
 export function CalculatorClient() {
-  const { recalculate, validation } = useCalculatorStore()
+  const { recalculate, validation, output } = useCalculatorStore()
 
   // 挂载后立即计算一次（覆盖首次访问无 localStorage 的场景）
   React.useEffect(() => {
     recalculate()
   }, [recalculate])
+
+  // 计算状态：有错误 / 已就绪
+  const hasError = validation.errors.length > 0 || output?.error
+  const isReady = !hasError && output?.optimum
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -32,8 +36,20 @@ export function CalculatorClient() {
               <Grape className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold leading-tight truncate">
+              <h1 className="text-base sm:text-lg font-bold leading-tight truncate flex items-center gap-2">
                 葡萄大棚降温剂最佳配比计算器
+                {isReady && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse-soft" />
+                    实时
+                  </span>
+                )}
+                {hasError && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-normal text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive" />
+                    参数异常
+                  </span>
+                )}
               </h1>
               <p className="text-[11px] text-muted-foreground hidden sm:block">
                 基于光合效益与有害积热（HHA）模型的遮阳率优化工具

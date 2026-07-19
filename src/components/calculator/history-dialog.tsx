@@ -1,12 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { History, RotateCcw, Trash2, Clock, Search, Filter } from 'lucide-react'
+import { History, RotateCcw, Trash2, Clock, Search, Filter, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -147,6 +150,63 @@ export function HistoryDialog() {
     setHistory([])
   }
 
+  // 导出历史记录
+  const exportJSON = () => {
+    const data = {
+      exportedAt: new Date().toISOString(),
+      version: 'v2',
+      count: history.length,
+      entries: history,
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `计算历史_${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`已导出 ${history.length} 条记录 (JSON)`)
+  }
+
+  const exportCSV = () => {
+    const headers = [
+      '时间', '类型', '品种', 'R(%)', 'Y', '棚温(°C)', '降温(°C)', '损失率(%)',
+      '净收益(元)', 'Tmax', 'Tmin', 'D', 'Imax', 'RH', '面积(亩)', '模式',
+    ]
+    const rows = history.map((h) => {
+      const d = new Date(h.timestamp)
+      const time = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      return [
+        time,
+        h.type === 'multi-day' ? '多日' : '单日',
+        h.presetName,
+        (h.summary.R * 100).toFixed(0),
+        h.summary.Y.toFixed(4),
+        h.summary.Tmax_cooled,
+        h.summary.deltaT,
+        (h.summary.L * 100).toFixed(1),
+        h.summary.netBenefit?.toFixed(2) ?? '',
+        h.params.Tmax,
+        h.params.Tmin,
+        h.params.D,
+        h.params.Imax,
+        h.params.RH,
+        h.params.sprayArea,
+        h.params.calcMode === 'table' ? '表格' : 'k值',
+      ].join(',')
+    })
+    // 添加 BOM 避免中文乱码
+    const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `计算历史_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`已导出 ${history.length} 条记录 (CSV)`)
+  }
+
   // 搜索/筛选状态
   const [searchQuery, setSearchQuery] = React.useState('')
   const [typeFilter, setTypeFilter] = React.useState<'all' | 'single' | 'multi-day'>('all')
@@ -201,9 +261,26 @@ export function HistoryDialog() {
               </Badge>
             </span>
             {history.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={handleClear}>
-                <Trash2 className="h-3 w-3 mr-1" /> 清空
-              </Button>
+              <div className="flex items-center gap-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs">
+                      <Download className="h-3 w-3 mr-1" /> 导出
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={exportCSV}>
+                      <Download className="h-3 w-3 mr-2" /> CSV (Excel)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportJSON}>
+                      <Download className="h-3 w-3 mr-2" /> JSON (完整数据)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={handleClear}>
+                  <Trash2 className="h-3 w-3 mr-1" /> 清空
+                </Button>
+              </div>
             )}
           </DialogTitle>
           <DialogDescription className="text-xs">

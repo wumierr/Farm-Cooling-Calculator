@@ -1,6 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
+} from 'recharts'
 import { GitCompare, Camera, X, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,9 +27,11 @@ interface Snapshot {
   preset: PresetKey
   presetName: string
   optimum: ResultPoint | null
+  /** 完整结果曲线（用于 A/B 叠加图示） */
+  results: ResultPoint[] | null
 }
 
-const SNAP_KEY = 'gcc:snapshots:v1'
+const SNAP_KEY = 'gcc:snapshots:v2'
 
 function loadSnapshots(): { A: Snapshot | null; B: Snapshot | null } {
   try {
@@ -95,6 +100,7 @@ export function CompareDialog() {
       preset: activePreset,
       presetName,
       optimum: output?.optimum ?? null,
+      results: output?.results ? JSON.parse(JSON.stringify(output.results)) : null,
     }
   }
 
@@ -124,6 +130,24 @@ export function CompareDialog() {
   const A = snapshots.A
   const B = snapshots.B
   const canCompare = A?.optimum && B?.optimum
+
+  // A/B 叠加图表数据（合并两条曲线的 Y 值）
+  const chartData = React.useMemo(() => {
+    if (!A?.results || !B?.results) return []
+    const len = Math.min(A.results.length, B.results.length)
+    const data: Array<{ Rlabel: string; YA: number | null; YB: number | null }> = []
+    for (let i = 0; i < len; i++) {
+      const ra = A.results[i]
+      const rb = B.results[i]
+      if (Math.abs(ra.R - rb.R) > 0.005) continue
+      data.push({
+        Rlabel: `${(ra.R * 100).toFixed(0)}%`,
+        YA: ra.Y,
+        YB: rb.Y,
+      })
+    }
+    return data
+  }, [A, B])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -196,6 +220,86 @@ export function CompareDialog() {
             )
           })}
         </div>
+
+        {/* A/B 曲线叠加图 */}
+        {canCompare && chartData.length > 0 && A && B && (
+          <div className="rounded-md border p-3 bg-card">
+            <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-3">
+              <span>Y 曲线叠加对比</span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#2d6a4f' }} />
+                <span className="text-[10px]">A: {A.presetName}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#c0392b' }} />
+                <span className="text-[10px]">B: {B.presetName}</span>
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartData} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="Rlabel"
+                  stroke="var(--muted-foreground)"
+                  fontSize={10}
+                  interval={6}
+                  label={{ value: '遮阳率 R', position: 'insideBottom', offset: -2, fontSize: 10 }}
+                />
+                <YAxis
+                  domain={[0, 1]}
+                  stroke="var(--muted-foreground)"
+                  fontSize={10}
+                  label={{ value: 'Y', angle: -90, position: 'insideLeft', fontSize: 10 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--popover)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                  }}
+                  formatter={(value: number, name: string) => [
+                    Number(value).toFixed(4),
+                    name === 'YA' ? `A: ${A.presetName}` : `B: ${B.presetName}`,
+                  ]}
+                  labelFormatter={(label) => `R = ${label}`}
+                />
+                {A.optimum && (
+                  <ReferenceLine
+                    x={`${(A.optimum.R * 100).toFixed(0)}%`}
+                    stroke="#2d6a4f"
+                    strokeDasharray="2 3"
+                    strokeOpacity={0.5}
+                  />
+                )}
+                {B.optimum && (
+                  <ReferenceLine
+                    x={`${(B.optimum.R * 100).toFixed(0)}%`}
+                    stroke="#c0392b"
+                    strokeDasharray="2 3"
+                    strokeOpacity={0.5}
+                  />
+                )}
+                <Line
+                  type="monotone"
+                  dataKey="YA"
+                  stroke="#2d6a4f"
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{ r: 5, fill: '#2d6a4f', stroke: 'var(--background)', strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="YB"
+                  stroke="#c0392b"
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{ r: 5, fill: '#c0392b', stroke: 'var(--background)', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         {/* 对比表 */}
         {canCompare && A && B && (

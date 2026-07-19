@@ -95,13 +95,31 @@ export function CostBenefitChart() {
               {/* 零线 */}
               <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeDasharray="2 2" />
 
+              {/* 盈利区间（绿色面积，netBenefit > 0 部分） */}
+              <Area
+                type="monotone"
+                dataKey="profitArea"
+                name="盈利区间"
+                fill="var(--chart-1)"
+                fillOpacity={0.25}
+                stroke="none"
+              />
+              {/* 亏损区间（红色面积，netBenefit < 0 部分） */}
+              <Area
+                type="monotone"
+                dataKey="lossArea"
+                name="亏损区间"
+                fill="var(--destructive)"
+                fillOpacity={0.25}
+                stroke="none"
+              />
               {/* 挽回收益（面积） */}
               <Area
                 type="monotone"
                 dataKey="savedRevenue"
                 name="挽回收益"
                 fill="var(--chart-1)"
-                fillOpacity={0.15}
+                fillOpacity={0.1}
                 stroke="var(--chart-1)"
                 strokeWidth={1.5}
               />
@@ -137,6 +155,26 @@ export function CostBenefitChart() {
             </ComposedChart>
           </ResponsiveContainer>
         </ChartContainer>
+
+        {/* 图例 */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[10px]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--chart-1)', opacity: 0.25 }} />
+            <span className="text-muted-foreground">盈利区间</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--destructive)', opacity: 0.25 }} />
+            <span className="text-muted-foreground">亏损区间</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5" style={{ backgroundColor: 'var(--chart-2)' }} />
+            <span className="text-muted-foreground">净收益</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--destructive)' }} />
+            <span className="text-muted-foreground">粉剂成本</span>
+          </span>
+        </div>
 
         {/* 摘要 */}
         <div className="grid grid-cols-3 gap-2 mt-2 text-xs">

@@ -403,6 +403,10 @@ export interface CostBenefitPoint {
   powderCost: number
   /** 是否盈利（净收益 > 0） */
   profitable: boolean
+  /** 盈利部分（netBenefit > 0 时为 netBenefit，否则 0）— 用于绿色面积 */
+  profitArea: number
+  /** 亏损部分（netBenefit < 0 时为 netBenefit，否则 0）— 用于红色面积 */
+  lossArea: number
 }
 
 /** 计算所有 R 的净收益曲线（用于成本效益对比图）
@@ -464,6 +468,8 @@ export function calcCostBenefitCurve(
       savedRevenue,
       powderCost,
       profitable: netBenefit > 0,
+      profitArea: netBenefit > 0 ? netBenefit : 0,
+      lossArea: netBenefit < 0 ? netBenefit : 0,
     };
   });
 }
