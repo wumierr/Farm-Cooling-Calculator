@@ -9,7 +9,7 @@ import { MousePointerClick, Trash2 } from 'lucide-react'
 import { useCalculatorStore } from './store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import type { ResultPoint } from '@/lib/calculator'
 
 interface ChartDatum extends ResultPoint {
@@ -111,6 +111,8 @@ export function ResultChart() {
                 label={{ value: 'A_rel', angle: 90, position: 'insideRight', fontSize: 12 }}
               />
               <ChartTooltip
+                offset={40}
+                allowEscapeViewBox={{ y: true }}
                 cursor={{
                   stroke: 'var(--primary)',
                   strokeWidth: 1.5,
@@ -118,53 +120,52 @@ export function ResultChart() {
                   fill: 'var(--primary)',
                   fillOpacity: 0.06,
                 }}
-                content={
-                  <ChartTooltipContent
-                    className="rounded-lg border-border shadow-lg"
-                    formatter={(value, _name, item) => {
-                      const r = item.payload as ResultPoint
-                      return (
-                        <div className="space-y-1 text-xs min-w-[140px]">
-                          <div className="font-semibold text-sm border-b border-border pb-1 mb-1">
-                            R = {(r.R * 100).toFixed(0)}%
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">综合效益 Y</span>
-                            <span className="font-semibold tabular-nums">{r.Y.toFixed(4)}</span>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">光合保留</span>
-                            <span className="tabular-nums" style={{ color: 'var(--chart-1)' }}>
-                              {(r.A_rel * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">损失率</span>
-                            <span className="tabular-nums" style={{ color: r.L > 0.2 ? 'var(--destructive)' : 'inherit' }}>
-                              {(r.L * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">HHA</span>
-                            <span className="tabular-nums">{r.HHA.toFixed(1)}</span>
-                          </div>
-                          <div className="flex justify-between gap-3">
-                            <span className="text-muted-foreground">棚温</span>
-                            <span className="tabular-nums" style={{ color: r.Tmax_cooled > 37 ? 'var(--destructive)' : 'inherit' }}>
-                              {r.Tmax_cooled}°C
-                            </span>
-                          </div>
-                          {r.S_total != null && (
-                            <div className="flex justify-between gap-3">
-                              <span className="text-muted-foreground">S_total</span>
-                              <span className="tabular-nums">{(r.S_total * 100).toFixed(1)}%</span>
-                            </div>
-                          )}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null
+                  const r = payload[0]?.payload as ChartDatum
+                  if (!r) return null
+                  return (
+                    <div className="rounded-lg border border-border/60 bg-popover shadow-xl px-3 py-2 text-xs min-w-[160px]">
+                      <div className="font-semibold text-sm border-b border-border/60 pb-1 mb-1.5">
+                        R = {(r.R * 100).toFixed(0)}%
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">综合效益 Y</span>
+                          <span className="font-semibold tabular-nums">{r.Y.toFixed(4)}</span>
                         </div>
-                      )
-                    }}
-                  />
-                }
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">光合保留</span>
+                          <span className="tabular-nums" style={{ color: 'var(--chart-1)' }}>
+                            {(r.A_rel * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">损失率</span>
+                          <span className="tabular-nums" style={{ color: r.L > 0.2 ? 'var(--destructive)' : 'inherit' }}>
+                            {(r.L * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">HHA</span>
+                          <span className="tabular-nums">{r.HHA.toFixed(1)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">棚温</span>
+                          <span className="tabular-nums" style={{ color: r.Tmax_cooled > 37 ? 'var(--destructive)' : 'inherit' }}>
+                            {r.Tmax_cooled}°C
+                          </span>
+                        </div>
+                        {r.S_total != null && (
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">S_total</span>
+                            <span className="tabular-nums">{(r.S_total * 100).toFixed(1)}%</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }}
               />
               {hasPlateau && (
                 <ReferenceArea

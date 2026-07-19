@@ -714,3 +714,70 @@ src/components/calculator/
 5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.8 迭代记录（2026-07-19 用户反馈修复）
+
+### 项目当前状态：✅ 稳定可用，修复 3 个用户反馈问题
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 验证：tooltip 单次显示 + 靠下、窄屏标头正常
+
+### 本轮修复的问题
+
+#### 1. 图表 tooltip 重复显示 + 遮挡视野（用户反馈）
+- **问题**：光标移到综合效益曲线上后，会显示两次数据（Y 线 + A_rel 线各触发一次 formatter），且离数据点太近遮挡曲线
+- **根因**：使用 shadcn `ChartTooltipContent` 的 `formatter` prop，它会对每个 payload item 调用 formatter，2 条线 = 2 次渲染
+- **修复**：改为自定义 `content` 函数组件，直接从 `payload[0].payload` 取数据点，单次渲染完整信息
+- **同时修复**：成本效益图（5 个 Area/Line 系列导致 5 次重复）
+- **位置修复**：`offset={40}` + `allowEscapeViewBox={{ y: true }}`，tooltip 偏移到数据点下方，不再遮挡曲线
+- **验证**：hover 后仅 1 个可见 tooltip，内容含 R/Y/A_rel/L/HHA/棚温，位置在曲线下方
+
+#### 2. 窄屏标头排班错乱 + 显示不全（用户反馈）
+- **问题**：页面收窄时，"葡萄大棚降温剂最佳配比计算器 / 实时 / 基于光合效益..." 这部分排班会错乱并且显示不全
+- **根因**：h1 同时用 `truncate` + `flex items-center gap-2`，truncate 在 flex 容器内无效；副标题 `hidden sm:block` 在移动端完全隐藏
+- **修复**：
+  - 标题拆分为两个 span：`hidden sm:inline`（完整标题，≥640px）+ `sm:hidden`（简称"降温剂计算器"，<640px）
+  - 徽章改为 `shrink-0` 不被压缩，文字缩小到 `text-[9px]`
+  - 副标题改为始终显示但 `truncate`（移动端显示"基于光合效益与有害积热（HHA）模型"简短版）
+  - 工具栏 `flex-wrap justify-end` 允许换行
+  - 图标尺寸响应式 `h-8 w-8 sm:h-9 sm:w-9`
+- **验证**：390px 和 320px 宽度下标头完整显示无错乱（VLM 确认）
+
+#### 3. worklog 未解决问题清单检查
+- 当前未解决项（来自 v2.7 下一阶段建议）：
+  1. PWA 离线实际测试（断网验证）— 待做
+  2. 处方单服务端 PDF 生成 — 待做（需安装依赖）
+  3. A/B 对比盈亏分析 — 待做
+  4. 历史记录导入 — 待做
+  5. 成本效益图盈亏平衡点标注 — 待做
+- 无阻塞性 bug，均为功能增强建议
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| tooltip 单次显示 | ✅ 仅 1 个可见 tooltip，无重复数据 |
+| tooltip 位置靠下 | ✅ tooltipY=379 在曲线下方（chartBottom=509）|
+| 成本图 tooltip 修复 | ✅ 自定义 content，5 系列不再重复 |
+| 390px 标头完整 | ✅ VLM：标题完整、徽章正常、无错乱 |
+| 320px 标头完整 | ✅ VLM：标题完整、按钮未溢出 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/components/calculator/
+├─ result-chart.tsx           # ★v2.8 自定义 tooltip content + offset=40
+├─ cost-benefit-chart.tsx     # ★v2.8 自定义 tooltip content + offset=30
+└─ calculator-client.tsx      # ★v2.8 响应式标头（简称/完整/徽章/换行）
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比盈亏分析（对比两场景的净收益差异）
+4. **P2**：历史记录导入（从 CSV/JSON 恢复）
+5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

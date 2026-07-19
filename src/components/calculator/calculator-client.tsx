@@ -30,33 +30,36 @@ export function CalculatorClient() {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-md no-print">
-        <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
-              <Grape className="h-5 w-5" />
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
+              <Grape className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold leading-tight truncate flex items-center gap-2">
-                葡萄大棚降温剂最佳配比计算器
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h1 className="text-sm sm:text-base lg:text-lg font-bold leading-tight truncate">
+                  <span className="hidden sm:inline">葡萄大棚降温剂最佳配比计算器</span>
+                  <span className="sm:hidden">降温剂计算器</span>
+                </h1>
                 {isReady && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse-soft" />
                     实时
                   </span>
                 )}
                 {hasError && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-normal text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-normal text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full shrink-0">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive" />
-                    参数异常
+                    异常
                   </span>
                 )}
-              </h1>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
-                基于光合效益与有害积热（HHA）模型的遮阳率优化工具
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                基于光合效益与有害积热（HHA）模型
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
             <CompareDialog />
             <HistoryDialog />
             <PrescriptionExport />

@@ -8,7 +8,7 @@ import {
 import { TrendingUp, DollarSign } from 'lucide-react'
 import { useCalculatorStore } from './store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 import { calcCostBenefitCurve } from '@/lib/calculator/advice'
 import type { CostBenefitPoint } from '@/lib/calculator/advice'
 
@@ -64,6 +64,8 @@ export function CostBenefitChart() {
                 label={{ value: '元', angle: -90, position: 'insideLeft', fontSize: 11 }}
               />
               <ChartTooltip
+                offset={30}
+                allowEscapeViewBox={{ y: true }}
                 cursor={{
                   stroke: 'var(--primary)',
                   strokeWidth: 1.5,
@@ -71,26 +73,34 @@ export function CostBenefitChart() {
                   fill: 'var(--primary)',
                   fillOpacity: 0.04,
                 }}
-                content={
-                  <ChartTooltipContent
-                    className="rounded-lg border-border shadow-lg"
-                    formatter={(value, name) => (
-                      <div className="flex justify-between gap-3 text-xs">
-                        <span className="text-muted-foreground">{name}</span>
-                        <span className="font-semibold tabular-nums">¥{Number(value).toFixed(0)}</span>
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null
+                  const r = payload[0]?.payload as CostBenefitPoint
+                  if (!r) return null
+                  return (
+                    <div className="rounded-lg border border-border/60 bg-popover shadow-xl px-3 py-2 text-xs min-w-[150px]">
+                      <div className="font-semibold text-sm border-b border-border/60 pb-1 mb-1.5">
+                        R = {r.Rlabel} {r.profitable ? '✓ 盈利' : '✗ 亏损'}
                       </div>
-                    )}
-                    labelFormatter={(label) => {
-                      const item = data.find((d) => d.Rlabel === label)
-                      if (!item) return label
-                      return (
-                        <span className="font-semibold text-sm border-b border-border pb-1 mb-1 block">
-                          R = {label} {item.profitable ? '✓ 盈利' : '✗ 亏损'}
-                        </span>
-                      )
-                    }}
-                  />
-                }
+                      <div className="space-y-1">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">净收益</span>
+                          <span className="font-semibold tabular-nums" style={{ color: r.netBenefit >= 0 ? 'var(--chart-2)' : 'var(--destructive)' }}>
+                            ¥{r.netBenefit.toFixed(0)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">挽回收益</span>
+                          <span className="tabular-nums" style={{ color: 'var(--chart-1)' }}>¥{r.savedRevenue.toFixed(0)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-foreground">粉剂成本</span>
+                          <span className="tabular-nums text-destructive">−¥{r.powderCost.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }}
               />
               {/* 零线 */}
               <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeDasharray="2 2" />
