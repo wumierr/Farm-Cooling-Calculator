@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=降温剂计算器-启动
 Comment=葡萄大棚降温剂最佳配比计算器
-Exec=/home/z/my-project/serve.sh start
+Exec=bash -c 'cd "/home/z/my-project" && ./serve.sh start'
 Icon=/home/z/my-project/public/icon-512.png
 Terminal=true
 Type=Application

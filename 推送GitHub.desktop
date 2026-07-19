@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=降温剂计算器-推送GitHub
-Comment=一键推送到 GitHub
-Exec=/home/z/my-project/git-push.sh "更新项目"
+Comment=葡萄大棚降温剂最佳配比计算器
+Exec=bash -c 'cd "/home/z/my-project" && ./git-push.sh "更新项目"'
 Icon=/home/z/my-project/public/icon-192.png
 Terminal=true
 Type=Application
-Categories=Development;
+Categories=Utility;
