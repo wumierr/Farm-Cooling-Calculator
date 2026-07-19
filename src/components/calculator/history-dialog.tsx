@@ -1,13 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { History, RotateCcw, Trash2, Clock } from 'lucide-react'
+import { History, RotateCcw, Trash2, Clock, Search, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { toast } from 'sonner'
 import { useCalculatorStore } from './store'
 import { PRESETS } from '@/lib/calculator'
@@ -145,6 +147,31 @@ export function HistoryDialog() {
     setHistory([])
   }
 
+  // 搜索/筛选状态
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [typeFilter, setTypeFilter] = React.useState<'all' | 'single' | 'multi-day'>('all')
+
+  // 过滤后的历史记录
+  const filteredHistory = React.useMemo(() => {
+    return history.filter((h) => {
+      // 类型过滤
+      if (typeFilter !== 'all' && h.type !== typeFilter) return false
+      // 搜索查询（品种名、R 值、参数）
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase()
+        const haystack = [
+          h.presetName,
+          `${(h.summary.R * 100).toFixed(0)}%`,
+          `${h.params.Tmax}`,
+          `${h.params.sprayArea}`,
+          h.params.calcMode === 'table' ? '表格' : 'k值',
+        ].join(' ').toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [history, searchQuery, typeFilter])
+
   const fmtTime = (ts: number) => {
     const d = new Date(ts)
     const now = Date.now()
@@ -169,6 +196,9 @@ export function HistoryDialog() {
             <span className="flex items-center gap-2">
               <History className="h-5 w-5 text-primary" />
               计算历史
+              <Badge variant="secondary" className="text-[10px] py-0 ml-1">
+                {history.length}
+              </Badge>
             </span>
             {history.length > 0 && (
               <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={handleClear}>
@@ -180,16 +210,48 @@ export function HistoryDialog() {
             点击任意记录可回溯参数与结果（最多保留 12 条）
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[65vh] pr-4">
+
+        {/* 搜索 + 筛选栏 */}
+        {history.length > 0 && (
+          <div className="flex items-center gap-2 pb-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="搜索品种、R 值、参数..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+            <ToggleGroup
+              type="single"
+              value={typeFilter}
+              onValueChange={(v) => setTypeFilter((v as typeof typeFilter) || 'all')}
+              className="rounded-md border bg-card"
+            >
+              <ToggleGroupItem value="all" className="h-8 px-2 text-xs">全部</ToggleGroupItem>
+              <ToggleGroupItem value="single" className="h-8 px-2 text-xs">单日</ToggleGroupItem>
+              <ToggleGroupItem value="multi-day" className="h-8 px-2 text-xs">多日</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
+
+        <ScrollArea className="max-h-[60vh] pr-4">
           {history.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground">
               <Clock className="h-8 w-8 mx-auto mb-2 opacity-40" />
               暂无历史记录
               <p className="text-xs mt-1">修改参数计算后会自动记录</p>
             </div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              <Filter className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              无匹配记录
+              <p className="text-xs mt-1">尝试调整搜索关键词或筛选条件</p>
+            </div>
           ) : (
             <div className="space-y-2">
-              {history.map((h) => (
+              {filteredHistory.map((h) => (
                 <div
                   key={h.id}
                   className={`group rounded-md border p-3 hover:border-primary/40 hover:bg-muted/30 transition-colors cursor-pointer ${

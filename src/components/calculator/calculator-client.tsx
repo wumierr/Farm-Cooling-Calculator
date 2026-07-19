@@ -11,6 +11,7 @@ import { RecipeManager } from './recipe-manager'
 import { MultiDayDialog } from './multi-day-dialog'
 import { PrescriptionExport } from './prescription-export'
 import { HistoryDialog } from './history-dialog'
+import { CompareDialog } from './compare-dialog'
 import { Button } from '@/components/ui/button'
 
 export function CalculatorClient() {
@@ -40,6 +41,7 @@ export function CalculatorClient() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <CompareDialog />
             <HistoryDialog />
             <PrescriptionExport />
             <MultiDayDialog />

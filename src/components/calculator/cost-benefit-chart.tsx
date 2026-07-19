@@ -64,9 +64,16 @@ export function CostBenefitChart() {
                 label={{ value: '元', angle: -90, position: 'insideLeft', fontSize: 11 }}
               />
               <ChartTooltip
-                cursor={{ stroke: 'var(--primary)', strokeWidth: 1, strokeDasharray: '4 3' }}
+                cursor={{
+                  stroke: 'var(--primary)',
+                  strokeWidth: 1.5,
+                  strokeDasharray: '5 3',
+                  fill: 'var(--primary)',
+                  fillOpacity: 0.04,
+                }}
                 content={
                   <ChartTooltipContent
+                    className="rounded-lg border-border shadow-lg"
                     formatter={(value, name) => (
                       <div className="flex justify-between gap-3 text-xs">
                         <span className="text-muted-foreground">{name}</span>
@@ -75,7 +82,12 @@ export function CostBenefitChart() {
                     )}
                     labelFormatter={(label) => {
                       const item = data.find((d) => d.Rlabel === label)
-                      return item ? `R = ${label} ${item.profitable ? '✓' : '✗'}` : label
+                      if (!item) return label
+                      return (
+                        <span className="font-semibold text-sm border-b border-border pb-1 mb-1 block">
+                          R = {label} {item.profitable ? '✓ 盈利' : '✗ 亏损'}
+                        </span>
+                      )
                     }}
                   />
                 }

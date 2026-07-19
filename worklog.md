@@ -551,3 +551,85 @@ src/components/calculator/
 5. **P2**：历史记录搜索/筛选（按品种、日期、类型过滤）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.6 迭代记录（2026-07-19 cron 第 6 轮）
+
+### 项目当前状态：✅ 稳定可用，A/B 对比 + 历史搜索 + 成本图十字线 + 可见数据点
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：历史搜索/筛选、A/B 对比快照、成本图十字线均验证
+
+### 本轮完成的改进
+
+#### 1. P2 新功能：历史记录搜索/筛选
+- **history-dialog.tsx** 新增：
+  - 搜索框（Search 图标 + Input）：支持品种名、R 值、Tmax、面积、模式关键词
+  - 类型筛选 ToggleGroup：全部 / 单日 / 多日 三选一
+  - filteredHistory useMemo 过滤逻辑
+  - 标题栏显示总记录数 Badge
+  - 无匹配时显示 Filter 图标 + "无匹配记录"提示
+- **验证**：搜索"夏黑"→ 1 条匹配；多日筛选 → 无匹配记录（正确，当前均为单日）
+
+#### 2. P2 样式：成本效益图 hover 十字线 + tooltip 美化
+- **cost-benefit-chart.tsx** ChartTooltip cursor 增强：
+  - strokeWidth 1.5 + dasharray "5 3" + fill primary 4% 透明
+  - tooltip 圆角边框 + 阴影
+  - labelFormatter 改为标题分隔线："R = XX% ✓ 盈利 / ✗ 亏损"
+- **验证**：hover 显示十字线 + 盈亏标识
+
+#### 3. P2 功能：图表数据点可见 dots
+- **result-chart.tsx** Y 线新增 dot 渲染函数：
+  - 每 5 个数据点显示一个小圆点（10%, 15%, 20%... 间隔 5%）
+  - r=2, fill chart-1 40% 透明, stroke background 1px
+  - 低饱和不遮挡曲线，但标识关键 R 值位置
+- 替代原 71 个点全显示方案（避免视觉拥挤）
+
+#### 4. P2 新功能：A/B 场景对比快照
+- **compare-dialog.tsx** 新组件：
+  - 两个快照槽位 A / B，各可快照当前参数 + 最优结果
+  - 快照卡片显示品种名 + R/Y/棚温 3 指标
+  - 快照/载入/清除操作
+  - 持久化到 localStorage `gcc:snapshots:v1`
+- **对比表**（10 指标）：
+  - 最优遮阳率 R / 综合效益 Y / 降温后棚温 / 降温幅度
+  - 光合保留率 / 产量损失率 / 有害积热 HHA
+  - Tmax(输入) / LSP / T₀
+  - 每行显示 A 值 / 差异(+/-) / B 值
+  - higherIsBetter 参数控制着色（更优者 primary 色）
+- **MetricRow 模块级组件**（避免 render 内创建 lint 错误）
+- **验证**：场景 A 克瑞森 R=29% vs 场景 B 夏黑 R=35%，差异 R+6%, Y+0.0010, 棚温-1.1°C
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 历史搜索 | ✅ 搜索"夏黑"→ 1 条匹配 |
+| 历史类型筛选 | ✅ 单日/多日/全部 切换正确 |
+| 历史无匹配提示 | ✅ 多日筛选无记录时显示提示 |
+| 成本图十字线 | ✅ hover 显示 primary 虚线 + 4% 填充 |
+| 成本图 tooltip | ✅ "R=XX% ✓盈利/✗亏损" 标题 |
+| 图表可见 dots | ✅ 每 5 点一个小圆点，低饱和 |
+| A/B 快照 | ✅ A=克瑞森29%, B=夏黑35% |
+| A/B 对比表 | ✅ 10 指标差异显示，盈亏着色 |
+| A/B 持久化 | ✅ localStorage 存储快照 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/components/calculator/
+├─ history-dialog.tsx         # ★v2.6 搜索框 + 类型筛选 + filteredHistory
+├─ cost-benefit-chart.tsx     # ★v2.6 十字线 + tooltip 美化
+├─ result-chart.tsx           # ★v2.6 每 5 点可见 dots
+└─ compare-dialog.tsx         # ★v2.6 新组件：A/B 场景对比
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比图示化（两条曲线叠加显示，而非仅表格）
+4. **P2**：历史记录导出（CSV/JSON 备份）
+5. **P2**：成本效益图盈亏区间着色（netBenefit>0 绿色面积，<0 红色面积）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

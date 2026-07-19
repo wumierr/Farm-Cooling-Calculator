@@ -184,7 +184,23 @@ export function ResultChart() {
                 name="综合效益 Y"
                 stroke="var(--chart-1)"
                 strokeWidth={2.5}
-                dot={false}
+                dot={(props) => {
+                  const { index } = props
+                  // 每 5 个点显示一个小圆点（10%, 15%, 20%... 间隔 5%）
+                  if (index % 5 !== 0) return false as unknown as React.ReactElement
+                  return (
+                    <circle
+                      key={`dot-${index}`}
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={2}
+                      fill="var(--chart-1)"
+                      fillOpacity={0.4}
+                      stroke="var(--background)"
+                      strokeWidth={1}
+                    />
+                  )
+                }}
                 activeDot={{
                   r: 7,
                   fill: 'var(--chart-1)',
