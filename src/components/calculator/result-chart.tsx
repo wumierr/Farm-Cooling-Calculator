@@ -111,20 +111,54 @@ export function ResultChart() {
                 label={{ value: 'A_rel', angle: 90, position: 'insideRight', fontSize: 12 }}
               />
               <ChartTooltip
+                cursor={{
+                  stroke: 'var(--primary)',
+                  strokeWidth: 1.5,
+                  strokeDasharray: '5 3',
+                  fill: 'var(--primary)',
+                  fillOpacity: 0.06,
+                }}
                 content={
                   <ChartTooltipContent
+                    className="rounded-lg border-border shadow-lg"
                     formatter={(value, _name, item) => {
                       const r = item.payload as ResultPoint
                       return (
-                        <div className="space-y-0.5 text-xs">
-                          <div className="font-semibold">R = {(r.R * 100).toFixed(0)}%</div>
-                          <div>Y: {r.Y.toFixed(4)}</div>
-                          <div className="text-muted-foreground">A_rel: {(r.A_rel * 100).toFixed(1)}%</div>
-                          <div className="text-muted-foreground">损失率: {(r.L * 100).toFixed(1)}%</div>
-                          <div className="text-muted-foreground">HHA: {r.HHA.toFixed(1)} °C²·h</div>
-                          <div className="text-muted-foreground">棚温: {r.Tmax_cooled}°C</div>
+                        <div className="space-y-1 text-xs min-w-[140px]">
+                          <div className="font-semibold text-sm border-b border-border pb-1 mb-1">
+                            R = {(r.R * 100).toFixed(0)}%
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">综合效益 Y</span>
+                            <span className="font-semibold tabular-nums">{r.Y.toFixed(4)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">光合保留</span>
+                            <span className="tabular-nums" style={{ color: 'var(--chart-1)' }}>
+                              {(r.A_rel * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">损失率</span>
+                            <span className="tabular-nums" style={{ color: r.L > 0.2 ? 'var(--destructive)' : 'inherit' }}>
+                              {(r.L * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">HHA</span>
+                            <span className="tabular-nums">{r.HHA.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">棚温</span>
+                            <span className="tabular-nums" style={{ color: r.Tmax_cooled > 37 ? 'var(--destructive)' : 'inherit' }}>
+                              {r.Tmax_cooled}°C
+                            </span>
+                          </div>
                           {r.S_total != null && (
-                            <div className="text-muted-foreground">S_total: {(r.S_total * 100).toFixed(1)}%</div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-muted-foreground">S_total</span>
+                              <span className="tabular-nums">{(r.S_total * 100).toFixed(1)}%</span>
+                            </div>
                           )}
                         </div>
                       )

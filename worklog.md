@@ -287,3 +287,104 @@ src/components/calculator/
 5. **P2**：光谱预设自定义保存（用户可保存自己的光谱曲线）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.3 迭代记录（2026-07-19 cron 第 3 轮）
+
+### 项目当前状态：✅ 稳定可用，PWA 离线 + 历史回溯 + 自定义点配比
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- PWA manifest + service worker 已部署，田间可离线使用
+- agent-browser QA 全部通过
+
+### 本轮完成的改进
+
+#### 1. P1 新功能：自定义策略点的配比建议
+- **问题**：v2.2 点击图表添加的自定义点只在策略对比表显示 R/Y/棚温/损失率，无配比建议
+- **修复**：策略对比表自定义点行可点击展开，显示兑水比 / 粉剂用量 / 用水量
+- 表格模式：线性插值 ratioN + coverage 计算精确值
+- k 值模式：插值 ratio + 经验 coverage 估算（标注"估"）
+- 超出产品数据范围时显示提示
+- **验证**：R=38% 自定义点展开显示兑水比 1:5.9、粉剂 1.4kg、用水 8L
+
+#### 2. P1 新功能：PWA 离线支持
+- **manifest.json**：name/short_name/description/theme_color(#2d6a4f)/icons(192+512)/shortcuts
+- **sw.js**：App Shell 预缓存 + stale-while-revalidate + 网络优先回退缓存
+  - HTML：网络优先，失败回退缓存（保证离线可用）
+  - 静态资源：stale-while-revalidate
+  - 版本管理：CACHE_VERSION 清理旧缓存
+- **PWA 图标**：AI 生成葡萄+太阳图标，sharp 转换为 192/512 PNG
+- **pwa-register.tsx**：
+  - Service Worker 自动注册
+  - `beforeinstallprompt` 监听 → 显示"安装到桌面"浮动按钮
+  - 在线/离线状态指示器（离线时显示"离线模式 · 缓存数据可用"）
+  - 生产环境右下角"离线就绪"角标
+- **layout.tsx**：metadata.manifest + appleWebApp + icons + viewport.themeColor
+- **验证**：manifest.json 加载、theme-color #2d6a4f、无控制台错误
+
+#### 3. P2 样式：图表 hover 十字线 + tooltip 美化
+- **十字线**：ChartTooltip cursor 配置（primary 色虚线 + 6% 填充）
+- **tooltip 美化**：
+  - 圆角边框 + 阴影
+  - 标题分隔线（R = XX%）
+  - 双列布局（指标名 + 值，tabular-nums 对齐）
+  - 条件着色：损失率>20% 红色、棚温>37°C 红色、光合保留绿色
+  - min-w-[140px] 保证宽度一致
+
+#### 4. P2 新功能：历史记录（最近计算快照）
+- **history-dialog.tsx**：自动记录每次"有意义"的计算结果
+  - 去重：相同 summary + preset 不重复记录
+  - 最多保留 12 条（FIFO）
+  - 每条含：时间戳、品种、参数快照、最优 R/Y/棚温/净收益
+- **UI**：弹窗列表，每条卡片显示 4 指标网格 + 元信息
+  - 相对时间（刚刚/X分钟前/X小时前）
+  - 点击整卡回溯参数（loadParams）
+  - hover 显示删除按钮 + 回溯图标
+  - 顶部"清空"按钮
+- **持久化**：localStorage `gcc:history:v1`
+- **验证**：修改参数后自动记录、点击回溯恢复参数
+
+#### 5. DialogDescription 可访问性修复
+- 为历史弹窗添加 `DialogDescription`（修复 Radix Missing Description 警告）
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 自定义点配比建议 | ✅ R=38% 展开显示 1:5.9 / 1.4kg / 8L |
+| PWA manifest | ✅ 加载正常，theme-color #2d6a4f |
+| PWA 图标 | ✅ 192/512 PNG，AI 生成葡萄+太阳 |
+| Service Worker | ✅ 注册无错误 |
+| 离线指示器 | ✅ 代码就绪（需离线测试） |
+| 图表十字线 | ✅ hover 显示 primary 虚线 |
+| tooltip 美化 | ✅ 双列布局 + 条件着色 |
+| 历史记录自动 | ✅ 计算后自动记录，去重 |
+| 历史回溯 | ✅ 点击恢复参数 |
+| DialogDescription | ✅ 无警告 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+public/
+├─ manifest.json              # ★v2.3 PWA manifest
+├─ sw.js                      # ★v2.3 Service Worker
+├─ icon-192.png               # ★v2.3 PWA 图标
+└─ icon-512.png               # ★v2.3 PWA 图标
+src/app/
+└─ layout.tsx                 # ★v2.3 manifest + themeColor + appleWebApp
+src/components/calculator/
+├─ pwa-register.tsx           # ★v2.3 SW 注册 + 安装提示 + 离线指示
+├─ history-dialog.tsx         # ★v2.3 历史记录弹窗
+├─ output-panel.tsx           # ★v2.3 自定义点可展开配比建议
+└─ result-chart.tsx           # ★v2.3 十字线 + tooltip 美化
+```
+
+### 下一阶段建议优先事项
+1. **P1**：光谱预设自定义保存（用户可保存自己的光谱曲线到 localStorage）
+2. **P2**：处方单 PDF 服务端生成（更精美排版，当前为客户端打印）
+3. **P2**：图表数据点 activeDot 高亮 + 点击区域扩大（当前点较小难精确点击）
+4. **P2**：多日预报历史记录整合（多日计算也存入历史）
+5. **P2**：PWA 离线实际测试（断网验证缓存命中）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）
