@@ -955,3 +955,75 @@ src/components/calculator/
 4. **P2**：优化内存占用（减少 Recharts 组件数量或懒加载）
 5. **P3**：多语言（next-intl 英文版）
 6. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v3.1 迭代记录（2026-07-19 崩溃修复 + 性能优化）
+
+### 项目当前状态：✅ 稳定可用，崩溃问题已修复
+- 开发服务器运行正常，agent-browser QA 全部通过
+- ESLint 通过，TypeScript 类型检查通过
+- 最优 R=29% 正常计算，所有功能（成本效益图/盈亏平衡/Diff Grid/策略对比）正常
+
+### 崩溃原因分析
+上一轮（v3.0）添加了 `next/dynamic` 懒加载（`ssr: false`）用于 ResultChart 和 CostBenefitChart，
+导致 React hydration 失败：页面 HTML 正常渲染但客户端 JS 未执行，
+useEffect 不触发、recalculate 不调用、output 永远为 null。
+在 4GB 内存环境下，SSR + 失败的 hydration 还会加剧内存压力导致 OOM。
+
+### 本轮修复
+
+#### 1. 撤销 next/dynamic 懒加载（根因修复）
+- 移除 `output-panel.tsx` 中的 `dynamic(() => import(...), { ssr: false })`
+- 恢复为直接 `import { ResultChart } from './result-chart'`
+- 恢复为直接 `import { CostBenefitChart } from './cost-benefit-chart'`
+- **验证**：页面 hydration 正常，useEffect 执行，recalculate 调用，output 生成
+
+#### 2. 修复 React Hooks 规则违规
+- **问题**：`StrategyComparison` 中 `adviceMap = React.useMemo(...)` 在 `if (strategies.length <= 1) return null` 之后调用
+- **修复**：将 useMemo 移到 early return 之前（Hooks 规则：所有 hooks 必须在组件顶层无条件调用）
+
+#### 3. 性能优化：adviceMap 预计算
+- **问题**：`getAdviceForR` 在渲染期间被多次调用（4 策略 × 3 行 = 12 次），每次都重新排序+循环
+- **修复**：使用 `React.useMemo` 预计算所有策略的配比建议到 Map
+  - 依赖 `[strategies, params]`，仅在策略或参数变化时重新计算
+  - 渲染期间从 Map 取值（O(1)），而非重新计算
+- 同时更新展开区也使用 adviceMap
+
+#### 4. 引擎验证（tsx 直接测试）
+- 确认 `findOptimalR` 返回 optimum R=0.29, Y=0.9693
+- 确认 `validateParams` 通过（valid: true, 0 errors）
+- 确认 `calcCostBenefitCurve` 返回 71 点，max netBenefit ¥3963
+- 确认 break-even R = none（所有 R 均盈利）
+- 确认 `getTableAdvice` 返回 ratio 1:8.7, powderKg 0.95
+- 确认 `extractStrategies` 返回 3 策略
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 页面 hydration | ✅ useEffect 执行，recalculate 调用 |
+| 最优 R 计算 | ✅ R=29%, Y=0.9693 |
+| 成本效益图 | ✅ 渲染正常 |
+| 盈亏平衡标注 | ✅ 显示（当前所有 R 盈利，标注条件不显示）|
+| 策略对比 Diff Grid | ✅ 渲染正常 |
+| 设为基准按钮 | ✅ 显示 |
+| 历史记录 | ✅ 显示 |
+| React Hooks 规则 | ✅ 无违规 |
+| TypeScript 类型检查 | ✅ src/ 无错误 |
+| ESLint | ✅ 通过 |
+| 控制台错误 | ✅ 无 |
+| 服务器稳定性 | ✅ agent-browser 全页加载后服务器存活 |
+
+### 文件结构更新
+```
+src/components/calculator/
+└─ output-panel.tsx           # ★v3.1 撤销 dynamic + adviceMap useMemo 预计算 + Hooks 规则修复
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比盈亏分析（对比两场景的净收益差异）
+4. **P2**：进一步优化内存占用（减少 Recharts 组件或用 lighter 替代）
+5. **P3**：多语言（next-intl 英文版）
+6. **P3**：跨设备配方同步（Prisma + API）

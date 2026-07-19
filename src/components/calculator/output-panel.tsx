@@ -193,6 +193,16 @@ function StrategyComparison() {
   const [baseStrategyId, setBaseStrategyId] = React.useState<string>('safe_save')
   const [expanded, setExpanded] = React.useState<string | null>(null)
 
+  // 预计算所有策略的配比建议（避免渲染期间重复调用 getAdviceForR）
+  // 须在 early return 之前调用 hook
+  const adviceMap = React.useMemo(() => {
+    const m = new Map<string, ReturnType<typeof getAdviceForR>>()
+    for (const s of strategies) {
+      m.set(s.id, getAdviceForR(s.data.R, params))
+    }
+    return m
+  }, [strategies, params])
+
   if (strategies.length <= 1) return null
 
   // 基准策略：优先用选中的，否则取第一个
@@ -207,14 +217,14 @@ function StrategyComparison() {
     {
       label: '兑水比',
       getValue: (s) => {
-        const a = getAdviceForR(s.data.R, params)
+        const a = adviceMap.get(s.id)
         return { text: a?.ratio ?? '--', num: null, higherIsBetter: null }
       },
     },
     {
       label: '总粉剂用量',
       getValue: (s) => {
-        const a = getAdviceForR(s.data.R, params)
+        const a = adviceMap.get(s.id)
         const kg = a?.powderKg ?? null
         return { text: kg != null ? `${kg.toFixed(1)} kg${a?.isEstimate ? ' (估)' : ''}` : '--', num: kg, higherIsBetter: false }
       },
@@ -222,7 +232,7 @@ function StrategyComparison() {
     {
       label: '预计总成本',
       getValue: (s) => {
-        const a = getAdviceForR(s.data.R, params)
+        const a = adviceMap.get(s.id)
         const cost = a?.powderKg != null ? a.powderKg * (params.powderPrice || 0) : null
         return { text: cost != null ? `¥${cost.toFixed(2)}` : '--', num: cost, higherIsBetter: false }
       },
@@ -349,7 +359,7 @@ function StrategyComparison() {
             {/* 自定义点配比建议展开区 */}
             {strategies.filter((s) => s.type === 'custom').map((s) => {
               const isExpanded = expanded === s.id
-              const advice = getAdviceForR(s.data.R, params)
+              const advice = adviceMap.get(s.id) ?? null
               return (
                 <React.Fragment key={`expand-${s.id}`}>
                   <div className="text-[11px] text-muted-foreground py-1.5 px-2 bg-muted/10">
