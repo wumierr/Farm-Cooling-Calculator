@@ -34,7 +34,8 @@ interface CalculatorState {
   setParams: (partial: Partial<CalcParams>) => void
   applyPreset: (preset: PresetKey) => void
   toggleStrategy: (key: 'max_y' | 'absolute_temp') => void
-  addCustomStrategy: (R: number) => void
+  /** 设置自定义策略点（单点替换模式：同时仅保留 1 个，点击新位置直接替换旧的） */
+  setCustomStrategy: (R: number) => void
   removeCustomStrategy: (R: number) => void
   clearCustomStrategies: () => void
   reset: () => void
@@ -89,12 +90,10 @@ export const useCalculatorStore = create<CalculatorState>()(
         get().recalculate()
       },
 
-      addCustomStrategy: (R) => {
+      setCustomStrategy: (R) => {
         const rounded = Math.round(R * 100) / 100
-        set((s) => {
-          if (s.customStrategies.includes(rounded)) return s
-          return { customStrategies: [...s.customStrategies, rounded] }
-        })
+        // 单点替换模式：清空已有自定义点，仅保留新点
+        set({ customStrategies: [rounded] })
         get().recalculate()
       },
 

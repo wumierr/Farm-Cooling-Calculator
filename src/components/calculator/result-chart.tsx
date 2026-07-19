@@ -19,7 +19,7 @@ interface ChartDatum extends ResultPoint {
 export function ResultChart() {
   const {
     output, strategies, plateau,
-    addCustomStrategy, removeCustomStrategy, clearCustomStrategies,
+    setCustomStrategy, removeCustomStrategy, clearCustomStrategies,
   } = useCalculatorStore()
 
   const data: ChartDatum[] = React.useMemo(() => {
@@ -60,7 +60,7 @@ export function ResultChart() {
             {hasPlateau && <span>黄色带 = 近优区间</span>}
             <span className="hidden sm:inline-flex items-center gap-1">
               <MousePointerClick className="h-3 w-3" />
-              点击曲线添加对比点
+              点击曲线设置对比点
             </span>
           </span>
         </CardTitle>
@@ -72,17 +72,10 @@ export function ResultChart() {
               data={data}
               margin={{ top: 8, right: 24, bottom: 8, left: 0 }}
               onClick={(e: { activePayload?: Array<{ payload: ChartDatum }> } | null) => {
+                // 单点替换模式：点击任意位置直接替换自定义点
                 if (e?.activePayload?.[0]?.payload) {
                   const datum = e.activePayload[0].payload
-                  // 若已有该 R 的自定义点 → 删除；否则添加
-                  const exists = strategies.some(
-                    (s) => s.type === 'custom' && Math.abs(s.data.R - datum.R) < 0.005,
-                  )
-                  if (exists) {
-                    removeCustomStrategy(datum.R)
-                  } else {
-                    addCustomStrategy(datum.R)
-                  }
+                  setCustomStrategy(datum.R)
                 }
               }}
             >
@@ -264,40 +257,58 @@ export function ResultChart() {
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
-        {/* 图例：曲线 + 策略点 */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-4 h-0.5" style={{ backgroundColor: 'var(--chart-1)' }} />
-            <span className="text-muted-foreground">综合效益 Y</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-4 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--chart-3)' }} />
-            <span className="text-muted-foreground">光合保留率 A_rel</span>
-          </div>
-          {strategies.map((s) => (
-            <div
-              key={s.id}
-              className={`flex items-center gap-1.5 ${s.type === 'custom' ? 'cursor-pointer hover:opacity-70' : ''}`}
-              onClick={() => {
-                if (s.type === 'custom') removeCustomStrategy(s.data.R)
-              }}
-              title={s.type === 'custom' ? '点击移除' : undefined}
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full border-2 border-background"
-                style={{ backgroundColor: s.color }}
-              />
-              <span className="text-muted-foreground">{s.name}</span>
-              {s.type === 'custom' && <Trash2 className="h-3 w-3 text-destructive" />}
+        {/* 图例：曲线 + 策略点说明 */}
+        <div className="mt-2 space-y-1.5">
+          {/* 曲线图例 */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-4 h-0.5" style={{ backgroundColor: 'var(--chart-1)' }} />
+              <span className="text-muted-foreground">综合效益 Y</span>
             </div>
-          ))}
-          {strategies.some((s) => s.type === 'custom') && (
-            <Button
-              variant="ghost" size="sm" className="h-6 text-xs ml-auto"
-              onClick={clearCustomStrategies}
-            >
-              <Trash2 className="h-3 w-3 mr-1" /> 清除自定义
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-4 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--chart-3)' }} />
+              <span className="text-muted-foreground">光合保留率 A_rel</span>
+            </div>
+            {hasPlateau && (
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--accent)', opacity: 0.5 }} />
+                <span className="text-muted-foreground">近优区间</span>
+              </div>
+            )}
+          </div>
+          {/* 策略点图例 — 颜色圆点 + 名称 + R 值，让用户区分每个点 */}
+          {strategies.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-1 border-t border-border/40">
+              <span className="text-[10px] text-muted-foreground/70 font-medium">策略点:</span>
+              {strategies.map((s) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-1 ${s.type === 'custom' ? 'cursor-pointer hover:opacity-70' : ''}`}
+                  onClick={() => {
+                    if (s.type === 'custom') removeCustomStrategy(s.data.R)
+                  }}
+                  title={s.type === 'custom' ? '点击移除' : undefined}
+                >
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-full border-2 border-background shrink-0"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  <span className="text-muted-foreground">{s.name}</span>
+                  <span className="text-[10px] text-muted-foreground/70 tabular-nums">
+                    R={(s.data.R * 100).toFixed(0)}%
+                  </span>
+                  {s.type === 'custom' && <Trash2 className="h-3 w-3 text-destructive" />}
+                </div>
+              ))}
+              {strategies.some((s) => s.type === 'custom') && (
+                <Button
+                  variant="ghost" size="sm" className="h-5 text-[10px] ml-auto px-1.5"
+                  onClick={clearCustomStrategies}
+                >
+                  <Trash2 className="h-2.5 w-2.5 mr-0.5" /> 清除
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </CardContent>

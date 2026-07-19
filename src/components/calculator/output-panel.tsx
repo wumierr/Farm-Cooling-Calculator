@@ -101,69 +101,132 @@ function OptimumCard() {
   )
 }
 
-/* ── 策略对比表 ── */
+/* ── 策略对比表（Diff Grid 模式） ── */
+
+/** 指标元数据 — 参考原版 METRICS_META */
+const METRICS_META: Array<{
+  key: keyof import('@/lib/calculator').ResultPoint
+  label: string
+  higherIsBetter: boolean | null
+  fmt: (v: number) => string
+  diffFmt?: (v: number) => string
+}> = [
+  { key: 'R', label: '遮阳率', higherIsBetter: null, fmt: (v) => `${(v * 100).toFixed(0)}%` },
+  { key: 'Y', label: '综合效益', higherIsBetter: true, fmt: (v) => v.toFixed(4), diffFmt: (v) => (v >= 0 ? '+' : '') + v.toFixed(4) },
+  { key: 'A_rel', label: '光合保留率', higherIsBetter: true, fmt: (v) => `${(v * 100).toFixed(1)}%`, diffFmt: (v) => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%' },
+  { key: 'L', label: '产量损失率', higherIsBetter: false, fmt: (v) => `${(v * 100).toFixed(1)}%`, diffFmt: (v) => (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%' },
+  { key: 'HHA', label: '有害积热', higherIsBetter: false, fmt: (v) => v.toFixed(1), diffFmt: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) },
+  { key: 'Tmax_cooled', label: '棚内最高温', higherIsBetter: false, fmt: (v) => `${v}°C`, diffFmt: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°C' },
+  { key: 'deltaT', label: '降温幅度', higherIsBetter: true, fmt: (v) => `${v}°C`, diffFmt: (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°C' },
+]
+
+/** Diff 徽章 — 绿色=更好，红色=更差，--=相同 */
+function DiffBadge({ baseVal, curVal, higherIsBetter, diffFmt }: {
+  baseVal: number
+  curVal: number
+  higherIsBetter: boolean | null
+  diffFmt?: (v: number) => string
+}) {
+  if (higherIsBetter == null) return null
+  const diff = curVal - baseVal
+  if (Math.abs(diff) < 0.0001) {
+    return <span className="text-[9px] text-muted-foreground/60 ml-1">--</span>
+  }
+  const isGood = (diff > 0 && higherIsBetter) || (diff < 0 && !higherIsBetter)
+  return (
+    <span className={cn(
+      'text-[9px] font-medium ml-1 px-1 rounded tabular-nums',
+      isGood ? 'text-primary bg-primary/10' : 'text-destructive bg-destructive/10',
+    )}>
+      {diffFmt ? diffFmt(diff) : (diff > 0 ? '+' : '') + diff.toFixed(3)}
+    </span>
+  )
+}
+
+/** 为任意 R 计算配比建议（表格/k 值模式通用） */
+function getAdviceForR(R: number, params: import('@/lib/calculator').CalcParams): {
+  ratio: string; powderKg: number; waterL: number; isEstimate: boolean
+} | null {
+  const totalM2 = params.sprayArea * 666.67
+  if (params.calcMode === 'table') {
+    const sorted = [...params.productTable].sort((a, b) => a.reflectancePercent - b.reflectancePercent)
+    if (sorted.length < 2) return null
+    const rMin = sorted[0].reflectancePercent / 100
+    const rMax = sorted[sorted.length - 1].reflectancePercent / 100
+    if (R < rMin || R > rMax) return null
+    let lo = sorted[0], hi = sorted[sorted.length - 1]
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const rl = sorted[i].reflectancePercent / 100
+      const rh = sorted[i + 1].reflectancePercent / 100
+      if (R >= rl && R <= rh) { lo = sorted[i]; hi = sorted[i + 1]; break }
+    }
+    const rl = lo.reflectancePercent / 100, rh = hi.reflectancePercent / 100
+    const t = Math.abs(rh - rl) < 1e-9 ? 0 : (R - rl) / (rh - rl)
+    const ratioN = lo.ratioN + t * (hi.ratioN - lo.ratioN)
+    const coverage = lo.coverage + t * (hi.coverage - lo.coverage)
+    const powderKg = totalM2 / coverage
+    return { ratio: `1:${ratioN.toFixed(1)}`, powderKg, waterL: powderKg * ratioN, isEstimate: false }
+  } else {
+    if (params.kMapping.length < 2) return null
+    const sorted = [...params.kMapping].sort((a, b) => a.r - b.r)
+    if (R < sorted[0].r || R > sorted[sorted.length - 1].r) return null
+    let lo = sorted[0], hi = sorted[sorted.length - 1]
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (R >= sorted[i].r && R <= sorted[i + 1].r) { lo = sorted[i]; hi = sorted[i + 1]; break }
+    }
+    const ratio = Math.abs(hi.r - lo.r) < 1e-9 ? lo.ratio : lo.ratio + (R - lo.r) / (hi.r - lo.r) * (hi.ratio - lo.ratio)
+    const ri = Math.max(1, Math.min(20, ratio))
+    const covMap = [{ r: 1, c: 100 }, { r: 3, c: 250 }, { r: 5, c: 400 }, { r: 8, c: 500 }, { r: 12, c: 750 }, { r: 15, c: 900 }, { r: 20, c: 1200 }]
+    let clo = covMap[0], chi = covMap[covMap.length - 1]
+    for (let i = 0; i < covMap.length - 1; i++) {
+      if (ri >= covMap[i].r && ri <= covMap[i + 1].r) { clo = covMap[i]; chi = covMap[i + 1]; break }
+    }
+    const coverage = clo.c + (ri - clo.r) / (chi.r - clo.r) * (chi.c - clo.c)
+    const powderKg = totalM2 / coverage
+    return { ratio: `1:${ratio.toFixed(1)}`, powderKg, waterL: powderKg * ratio, isEstimate: true }
+  }
+}
+
 function StrategyComparison() {
-  const { strategies, params, output } = useCalculatorStore()
+  const { strategies, params, removeCustomStrategy } = useCalculatorStore()
+  const [baseStrategyId, setBaseStrategyId] = React.useState<string>('safe_save')
   const [expanded, setExpanded] = React.useState<string | null>(null)
+
   if (strategies.length <= 1) return null
 
-  // 为自定义点计算配比建议
-  const getCustomAdvice = (R: number): { ratio: string; powder: string; water: string } | null => {
-    if (params.calcMode === 'table') {
-      // 表格模式：用 getTableAdvice 逻辑
-      try {
-        // 简化：直接查表
-        const sorted = [...params.productTable].sort((a, b) => a.reflectancePercent - b.reflectancePercent)
-        const rMin = sorted[0].reflectancePercent / 100
-        const rMax = sorted[sorted.length - 1].reflectancePercent / 100
-        if (R < rMin || R > rMax) return null
-        // 线性插值 ratioN 和 coverage
-        let lo = sorted[0], hi = sorted[sorted.length - 1]
-        for (let i = 0; i < sorted.length - 1; i++) {
-          const rl = sorted[i].reflectancePercent / 100
-          const rh = sorted[i + 1].reflectancePercent / 100
-          if (R >= rl && R <= rh) { lo = sorted[i]; hi = sorted[i + 1]; break }
-        }
-        const rl = lo.reflectancePercent / 100, rh = hi.reflectancePercent / 100
-        const t = Math.abs(rh - rl) < 1e-9 ? 0 : (R - rl) / (rh - rl)
-        const ratioN = lo.ratioN + t * (hi.ratioN - lo.ratioN)
-        const coverage = lo.coverage + t * (hi.coverage - lo.coverage)
-        const totalM2 = params.sprayArea * 666.67
-        const powderKg = totalM2 / coverage
-        const waterL = powderKg * ratioN
-        return {
-          ratio: `1:${ratioN.toFixed(1)}`,
-          powder: `${powderKg.toFixed(1)} kg`,
-          water: `${waterL.toFixed(0)} L`,
-        }
-      } catch { return null }
-    } else {
-      // k 值模式
-      if (params.kMapping.length < 2) return null
-      const sorted = [...params.kMapping].sort((a, b) => a.r - b.r)
-      if (R < sorted[0].r || R > sorted[sorted.length - 1].r) return null
-      let lo = sorted[0], hi = sorted[sorted.length - 1]
-      for (let i = 0; i < sorted.length - 1; i++) {
-        if (R >= sorted[i].r && R <= sorted[i + 1].r) { lo = sorted[i]; hi = sorted[i + 1]; break }
-      }
-      const ratio = Math.abs(hi.r - lo.r) < 1e-9 ? lo.ratio : lo.ratio + (R - lo.r) / (hi.r - lo.r) * (hi.ratio - lo.ratio)
-      const ri = Math.max(1, Math.min(20, ratio))
-      const covMap = [{ r: 1, c: 100 }, { r: 3, c: 250 }, { r: 5, c: 400 }, { r: 8, c: 500 }, { r: 12, c: 750 }, { r: 15, c: 900 }, { r: 20, c: 1200 }]
-      let clo = covMap[0], chi = covMap[covMap.length - 1]
-      for (let i = 0; i < covMap.length - 1; i++) {
-        if (ri >= covMap[i].r && ri <= covMap[i + 1].r) { clo = covMap[i]; chi = covMap[i + 1]; break }
-      }
-      const coverage = clo.c + (ri - clo.r) / (chi.r - clo.r) * (chi.c - clo.c)
-      const totalM2 = params.sprayArea * 666.67
-      const powderKg = totalM2 / coverage
-      const waterL = powderKg * ratio
-      return {
-        ratio: `1:${ratio.toFixed(1)}`,
-        powder: `${powderKg.toFixed(1)} kg (估)`,
-        water: `${waterL.toFixed(0)} L (估)`,
-      }
-    }
-  }
+  // 基准策略：优先用选中的，否则取第一个
+  const base = strategies.find((s) => s.id === baseStrategyId) ?? strategies[0]
+  const N = strategies.length
+
+  // 配比建议行（兑水比/粉剂/成本）的元数据
+  const adviceRows: Array<{
+    label: string
+    getValue: (s: typeof strategies[0]) => { text: string; num: number | null; higherIsBetter: boolean | null }
+  }> = [
+    {
+      label: '兑水比',
+      getValue: (s) => {
+        const a = getAdviceForR(s.data.R, params)
+        return { text: a?.ratio ?? '--', num: null, higherIsBetter: null }
+      },
+    },
+    {
+      label: '总粉剂用量',
+      getValue: (s) => {
+        const a = getAdviceForR(s.data.R, params)
+        const kg = a?.powderKg ?? null
+        return { text: kg != null ? `${kg.toFixed(1)} kg${a?.isEstimate ? ' (估)' : ''}` : '--', num: kg, higherIsBetter: false }
+      },
+    },
+    {
+      label: '预计总成本',
+      getValue: (s) => {
+        const a = getAdviceForR(s.data.R, params)
+        const cost = a?.powderKg != null ? a.powderKg * (params.powderPrice || 0) : null
+        return { text: cost != null ? `¥${cost.toFixed(2)}` : '--', num: cost, higherIsBetter: false }
+      },
+    },
+  ]
 
   return (
     <Card>
@@ -171,81 +234,164 @@ function StrategyComparison() {
         <CardTitle className="text-base flex items-center justify-between">
           <span>策略对比</span>
           <span className="text-[11px] font-normal text-muted-foreground">
-            {strategies.length} 个策略
+            {N} 个策略 · 基准: {base.name}
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="text-xs">
-              <TableHead className="py-1.5">策略</TableHead>
-              <TableHead className="text-right py-1.5">R</TableHead>
-              <TableHead className="text-right py-1.5">Y</TableHead>
-              <TableHead className="text-right py-1.5">棚温</TableHead>
-              <TableHead className="text-right py-1.5">损失率</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {/* 横向滚动容器，避免窄屏挤压 */}
+        <div className="overflow-x-auto scrollbar-thin -mx-1 px-1">
+          <div
+            className="grid gap-px min-w-full"
+            style={{ gridTemplateColumns: `110px repeat(${N}, minmax(110px, 1fr))` }}
+          >
+            {/* Header row: 策略名 + 设为基准/删除 */}
+            <div className="text-[10px] text-muted-foreground font-medium py-1.5 px-2 bg-muted/30 rounded-l">指标</div>
             {strategies.map((s) => {
+              const isBase = s.id === base.id
               const isCustom = s.type === 'custom'
-              const isExpanded = expanded === s.id
-              const advice = isCustom ? getCustomAdvice(s.data.R) : null
               return (
-                <React.Fragment key={s.id}>
-                  <TableRow
-                    className={cn('text-xs', isCustom && 'cursor-pointer hover:bg-muted/40', isExpanded && 'bg-muted/30')}
-                    onClick={() => isCustom && setExpanded(isExpanded ? null : s.id)}
-                  >
-                    <TableCell className="py-1.5 font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                        {s.name}
-                        {isCustom && (
-                          <span className="text-[9px] text-muted-foreground ml-1">
-                            {isExpanded ? '▾' : '▸'}
-                          </span>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right py-1.5 tabular-nums">{(s.data.R * 100).toFixed(0)}%</TableCell>
-                    <TableCell className="text-right py-1.5 tabular-nums font-semibold">{s.data.Y.toFixed(4)}</TableCell>
-                    <TableCell className={cn('text-right py-1.5 tabular-nums', s.data.Tmax_cooled > params.T0 && 'text-destructive font-medium')}>
-                      {s.data.Tmax_cooled}°C
-                    </TableCell>
-                    <TableCell className="text-right py-1.5 tabular-nums">{(s.data.L * 100).toFixed(1)}%</TableCell>
-                  </TableRow>
-                  {isCustom && isExpanded && (
-                    <TableRow className="text-xs bg-muted/20">
-                      <TableCell colSpan={5} className="py-2 px-4">
-                        {advice ? (
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <div className="text-[10px] text-muted-foreground">兑水比</div>
-                              <div className="font-semibold tabular-nums text-primary">{advice.ratio}</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] text-muted-foreground">粉剂用量</div>
-                              <div className="font-semibold tabular-nums">{advice.powder}</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] text-muted-foreground">用水量</div>
-                              <div className="font-semibold tabular-nums">{advice.water}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-muted-foreground">
-                            R={(s.data.R * 100).toFixed(0)}% 超出产品数据范围，无法生成配比建议
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                <div
+                  key={s.id}
+                  className={cn(
+                    'text-[11px] font-semibold py-1.5 px-2 flex items-center gap-1 flex-wrap',
+                    isBase ? 'bg-primary/10 text-primary' : 'bg-muted/20',
+                    N === strategies.length && 'rounded-r',
                   )}
+                >
+                  <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className="truncate">{s.name}</span>
+                  {isBase && <span className="text-[8px] bg-primary text-primary-foreground px-1 rounded">基准</span>}
+                  {!isBase && (
+                    <button
+                      onClick={() => setBaseStrategyId(s.id)}
+                      className="text-[9px] text-sky-600 hover:text-sky-700 hover:underline ml-auto shrink-0"
+                    >
+                      设为基准
+                    </button>
+                  )}
+                  {isCustom && (
+                    <button
+                      onClick={() => removeCustomStrategy(s.data.R)}
+                      className="text-[9px] text-destructive hover:text-destructive/70 ml-auto shrink-0"
+                      title="移除自定义点"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* 数据指标行 */}
+            {METRICS_META.map((meta) => (
+              <React.Fragment key={meta.key}>
+                <div className="text-[11px] text-muted-foreground py-1.5 px-2 bg-muted/10">{meta.label}</div>
+                {strategies.map((s) => {
+                  const isBase = s.id === base.id
+                  const val = s.data[meta.key] as number
+                  const baseVal = base.data[meta.key] as number
+                  return (
+                    <div
+                      key={s.id}
+                      className={cn(
+                        'text-[11px] py-1.5 px-2 tabular-nums flex items-center justify-end',
+                        isBase ? 'bg-primary/5 font-medium' : 'bg-card',
+                      )}
+                    >
+                      <span>{meta.fmt(val)}</span>
+                      {!isBase && (
+                        <DiffBadge
+                          baseVal={baseVal}
+                          curVal={val}
+                          higherIsBetter={meta.higherIsBetter}
+                          diffFmt={meta.diffFmt}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+
+            {/* 配比建议行 */}
+            {adviceRows.map((row) => (
+              <React.Fragment key={row.label}>
+                <div className="text-[11px] text-muted-foreground py-1.5 px-2 bg-muted/10">{row.label}</div>
+                {strategies.map((s) => {
+                  const isBase = s.id === base.id
+                  const { text, num, higherIsBetter } = row.getValue(s)
+                  const baseResult = row.getValue(base)
+                  return (
+                    <div
+                      key={s.id}
+                      className={cn(
+                        'text-[11px] py-1.5 px-2 tabular-nums flex items-center justify-end',
+                        isBase ? 'bg-primary/5 font-medium' : 'bg-card',
+                      )}
+                    >
+                      <span>{text}</span>
+                      {!isBase && num != null && baseResult.num != null && higherIsBetter != null && (
+                        <DiffBadge
+                          baseVal={baseResult.num}
+                          curVal={num}
+                          higherIsBetter={higherIsBetter}
+                          diffFmt={(d) => (d >= 0 ? '+' : '') + d.toFixed(1)}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+
+            {/* 自定义点配比建议展开区 */}
+            {strategies.filter((s) => s.type === 'custom').map((s) => {
+              const isExpanded = expanded === s.id
+              const advice = getAdviceForR(s.data.R, params)
+              return (
+                <React.Fragment key={`expand-${s.id}`}>
+                  <div className="text-[11px] text-muted-foreground py-1.5 px-2 bg-muted/10">
+                    <button
+                      onClick={() => setExpanded(isExpanded ? null : s.id)}
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      {s.name} 详情
+                      <span className="text-[9px]">{isExpanded ? '▾' : '▸'}</span>
+                    </button>
+                  </div>
+                  {strategies.map((s2) => (
+                    <div
+                      key={s2.id}
+                      className={cn(
+                        'text-[11px] py-1.5 px-2 bg-card',
+                        s2.id === s.id && isExpanded && 'bg-muted/20',
+                      )}
+                    >
+                      {s2.id === s.id && isExpanded && (
+                        <div className="space-y-0.5">
+                          {advice ? (
+                            <>
+                              <div className="text-[10px] text-muted-foreground">用水量: <span className="font-semibold tabular-nums text-foreground">{advice.waterL.toFixed(0)} L{advice.isEstimate ? ' (估)' : ''}</span></div>
+                              <div className="text-[10px] text-muted-foreground">每 kg 喷洒: <span className="font-semibold tabular-nums text-foreground">{(params.sprayArea * 666.67 / advice.powderKg).toFixed(0)} ㎡/kg</span></div>
+                            </>
+                          ) : (
+                            <div className="text-[10px] text-muted-foreground">R={(s.data.R * 100).toFixed(0)}% 超出产品数据范围</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </React.Fragment>
               )
             })}
-          </TableBody>
-        </Table>
+          </div>
+        </div>
+
+        {/* 说明 */}
+        <p className="text-[10px] text-muted-foreground mt-2">
+          <span className="text-primary">绿色</span> = 优于基准 · <span className="text-destructive">红色</span> = 劣于基准 · 点击"设为基准"切换对照
+        </p>
       </CardContent>
     </Card>
   )

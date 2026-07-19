@@ -781,3 +781,86 @@ src/components/calculator/
 5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.9 迭代记录（2026-07-19 用户需求实现）
+
+### 项目当前状态：✅ 稳定可用，3 项用户需求全部实现
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：单点替换、Diff Grid、策略点图例均验证
+
+### 本轮实现的用户需求
+
+#### 需求 1：自定义点改为单点替换模式
+- **用户要求**：综合效益图表上用户点击设置的点只要一个，设置后点别处直接替换，长按的预览保留
+- **store.ts 改动**：
+  - `addCustomStrategy` → 重命名为 `setCustomStrategy`
+  - 语义改为"单点替换"：`set({ customStrategies: [rounded] })`，清空已有再设新点
+  - `removeCustomStrategy` / `clearCustomStrategies` 保留（图例点击删除仍可用）
+- **result-chart.tsx 改动**：
+  - onClick 简化为 `setCustomStrategy(datum.R)`，移除"点击相同点删除"的 toggle 逻辑
+  - 标题提示从"添加对比点"改为"设置对比点"
+  - hover tooltip 预览保留（已有功能）
+- **验证**：点击 30% 处 → 自定义 29%；再点击 70% 处 → 自定义 64%（替换，非叠加）
+
+#### 需求 2：融合原参考代码 Diff Grid 对比表
+- **用户要求**：融合原版多数据对比 diff 表方案，让可以对比的数据对比 diff，保留现有功能
+- **output-panel.tsx StrategyComparison 重写**：
+  - 参考 `METRICS_META` 定义 7 个指标：R/Y/A_rel/L/HHA/棚温/降温，含 `higherIsBetter` + `fmt` + `diffFmt`
+  - `DiffBadge` 组件：绿色=优于基准，红色=劣于基准，--=相同
+  - `getAdviceForR` 函数：为任意 R 计算配比建议（兑水比/粉剂/成本），表格+k值模式通用
+  - Grid 布局：`grid-template-columns: 110px repeat(N, minmax(110px, 1fr))`
+  - 横向滚动容器（`overflow-x-auto scrollbar-thin`）避免窄屏挤压
+  - 基准策略列高亮（`bg-primary/5`），"设为基准"按钮切换对照
+  - 自定义点 ✕ 删除按钮
+  - 配比建议行：兑水比/总粉剂/总成本（含 diff 徽章）
+  - 自定义点可展开详情（用水量/每kg喷洒面积）
+  - 底部说明："绿色=优于基准 · 红色=劣于基准 · 点击设为基准切换对照"
+- **验证**：VLM 确认基准标识、diff 徽章、9 个指标行、设为基准按钮均完整
+
+#### 需求 3：图表策略点图例增强
+- **用户要求**：让用户方便分辨什么点是什么策略（用图例方式）
+- **result-chart.tsx 图例重写**：
+  - 分两层：曲线图例 + 策略点图例（`border-t` 分隔）
+  - 曲线图例：综合效益 Y + 光合保留率 A_rel + 近优区间（条件显示）
+  - 策略点图例：`策略点:` 标签 + 每个策略【颜色圆点 + 名称 + R 值】
+    - 如"● 安全省钱 (基准) R=38%"
+    - 自定义点带 🗑 图标可点击删除
+    - 有自定义点时显示"清除"按钮
+- **验证**：图例显示 4 个策略点（安全省钱/最高效益/绝对保温度/自定义 64%）+ 各自 R 值
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 单点替换 - 点击设置 | ✅ 点击 30% → 自定义 29% |
+| 单点替换 - 点击替换 | ✅ 再点击 70% → 自定义 64%（仅 1 个）|
+| hover 预览保留 | ✅ tooltip 正常显示 |
+| Diff Grid 基准标识 | ✅ "基准: 安全省钱" 标题 + 列高亮 |
+| Diff Grid diff 徽章 | ✅ 绿色+/红色- 徽章，VLM 确认 |
+| Diff Grid 9 指标行 | ✅ R/Y/A_rel/L/HHA/棚温/降温/兑水比/粉剂/成本 |
+| 设为基准切换 | ✅ 点击 → 基准改为"绝对保温度" |
+| 自定义点删除 | ✅ ✕ 按钮可移除 |
+| 自定义点展开详情 | ✅ 用水量/每kg喷洒面积 |
+| 策略点图例 | ✅ 颜色+名称+R值，4 个策略点清晰区分 |
+| 近优区间图例 | ✅ 条件显示 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/components/calculator/
+├─ store.ts                   # ★v2.9 addCustomStrategy → setCustomStrategy（单点替换）
+├─ result-chart.tsx           # ★v2.9 onClick 简化 + 策略点图例增强（颜色+名称+R值）
+└─ output-panel.tsx           # ★v2.9 StrategyComparison 重写为 Diff Grid（METRICS_META + DiffBadge + getAdviceForR）
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比盈亏分析（对比两场景的净收益差异）
+4. **P2**：历史记录导入（从 CSV/JSON 恢复）
+5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）
