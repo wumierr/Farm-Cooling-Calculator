@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/accordion'
 import { useCalculatorStore } from './store'
 import { SpectrumEditor as VisualSpectrumEditor } from './spectrum-editor'
-import { PRESETS } from '@/lib/calculator'
+import { PRESETS, WEATHER_SCENARIOS } from '@/lib/calculator'
 import type { PresetKey, ProductRow, KMappingRow, CalcParams } from '@/lib/calculator'
 import { cn } from '@/lib/utils'
 
@@ -307,6 +307,25 @@ export function InputPanel() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-3">
+            {/* 天气场景预设 */}
+            <div className="mb-3">
+              <div className="text-[11px] font-medium text-muted-foreground mb-1.5">天气场景预设</div>
+              <div className="flex flex-wrap gap-1">
+                {WEATHER_SCENARIOS.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setParams({
+                      Tmax: s.Tmax, Tmin: s.Tmin, D: s.D, Imax: s.Imax, RH: s.RH,
+                    })}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm"
+                    title={s.desc}
+                  >
+                    <span className="text-xs">{s.icon}</span>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
             <NumField id="Tmax" label={<>棚内日最高温 T<sub>max</sub></>} value={params.Tmax}
               onChange={(v) => setParam('Tmax', v)} unit="°C" step={0.1} min={20} max={60}
               invalid={invalid.has('Tmax')} />

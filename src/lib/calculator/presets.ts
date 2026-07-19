@@ -197,6 +197,65 @@ export const DEFAULT_WEATHER = {
   expectedYield: 1500,
 };
 
+/** 天气场景预设 — 典型气候一键加载
+ *  数据来源：各葡萄产区夏季典型棚内温度（棚内比室外高 5-10°C） */
+export interface WeatherScenario {
+  key: string
+  name: string
+  desc: string
+  icon: string
+  Tmax: number
+  Tmin: number
+  D: number
+  Imax: number
+  RH: number
+}
+
+export const WEATHER_SCENARIOS: WeatherScenario[] = [
+  {
+    key: 'summer-extreme',
+    name: '盛夏极端',
+    desc: '42°C+ 极端高温，强光低湿',
+    icon: '🔥',
+    Tmax: 48, Tmin: 28, D: 14, Imax: 1900, RH: 45,
+  },
+  {
+    key: 'summer-typical',
+    name: '盛夏常规',
+    desc: '35-38°C 典型夏季棚温',
+    icon: '☀️',
+    Tmax: 45, Tmin: 25, D: 14, Imax: 1700, RH: 60,
+  },
+  {
+    key: 'summer-mild',
+    name: '初夏温和',
+    desc: '30-33°C 初夏或阴天',
+    icon: '🌤️',
+    Tmax: 38, Tmin: 22, D: 13, Imax: 1400, RH: 65,
+  },
+  {
+    key: 'autumn',
+    name: '秋季',
+    desc: '28-30°C 秋季成熟期',
+    icon: '🍂',
+    Tmax: 35, Tmin: 18, D: 11, Imax: 1200, RH: 55,
+  },
+  {
+    key: 'humid',
+    name: '高湿闷热',
+    desc: '高温高湿，蒸腾受阻',
+    icon: '💧',
+    Tmax: 42, Tmin: 26, D: 13, Imax: 1500, RH: 85,
+  },
+  {
+    key: 'dry-hot',
+    name: '干热风',
+    desc: '高温低湿，蒸腾强但失水快',
+    icon: '🏜️',
+    Tmax: 44, Tmin: 24, D: 14, Imax: 1800, RH: 35,
+  },
+];
+
 /** 产品性能默认数据（遮阳率递减，对应兑水比递增） */
 export const DEFAULT_PRODUCT_TABLE: ProductRow[] = [
   { ratioN: 2,  reflectancePercent: 80, tempDrop: 14.0, coverage: 200 },

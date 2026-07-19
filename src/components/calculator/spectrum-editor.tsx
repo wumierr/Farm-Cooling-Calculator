@@ -1,8 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { RotateCcw, Plus, Trash2, GripVertical } from 'lucide-react'
+import { RotateCcw, Plus, Trash2, GripVertical, Save, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
+import { toast } from 'sonner'
 import { useCalculatorStore } from './store'
 import { CONFIG } from '@/lib/calculator'
 import { fritschCarlsonSpline, integrateSpectrum } from '@/lib/calculator/engine'
@@ -150,19 +155,88 @@ export function SpectrumEditor() {
     const preset = CONFIG.SPECTRAL_PRESETS.find((p) => p.key === presetKey)
     if (preset) {
       setParams({ spectrumPoints: preset.points.map((p) => ({ ...p })) })
+      return
     }
+    // 查找自定义预设
+    const custom = customPresets.find((p) => p.key === presetKey)
+    if (custom) {
+      setParams({ spectrumPoints: custom.points.map((p) => ({ ...p })) })
+    }
+  }
+
+  // ── 自定义光谱预设管理 ──
+  const CUSTOM_KEY = 'gcc:spectrum-presets:v1'
+  interface CustomPreset { key: string; name: string; points: SpectrumPoint[] }
+  const [customPresets, setCustomPresets] = React.useState<CustomPreset[]>([])
+  const [saveName, setSaveName] = React.useState('')
+  const [saveOpen, setSaveOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_KEY)
+      if (raw) setCustomPresets(JSON.parse(raw))
+    } catch {}
+  }, [])
+
+  const saveCustomPreset = () => {
+    if (!saveName.trim()) {
+      toast.error('请输入预设名称')
+      return
+    }
+    const preset: CustomPreset = {
+      key: `custom_${Date.now()}`,
+      name: saveName.trim(),
+      points: params.spectrumPoints.map((p) => ({ ...p })),
+    }
+    const next = [preset, ...customPresets].slice(0, 20)
+    setCustomPresets(next)
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(next)) } catch {}
+    setSaveName('')
+    setSaveOpen(false)
+    toast.success(`已保存自定义光谱「${preset.name}」`)
+  }
+
+  const deleteCustomPreset = (key: string) => {
+    const next = customPresets.filter((p) => p.key !== key)
+    setCustomPresets(next)
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(next)) } catch {}
+    toast.success('已删除')
   }
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">光谱反射率曲线（拖拽控制点 · 双击空白添加）</span>
-        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={reset}>
-          <RotateCcw className="h-3 w-3 mr-1" /> 恢复默认
-        </Button>
+        <div className="flex items-center gap-1">
+          <Popover open={saveOpen} onOpenChange={setSaveOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 text-xs">
+                <Save className="h-3 w-3 mr-1" /> 保存
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+              <div className="space-y-2">
+                <div className="text-xs font-semibold">保存当前光谱为自定义预设</div>
+                <Input
+                  placeholder="如「自家白涂剂配方」"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveCustomPreset()}
+                  className="h-8 text-xs"
+                />
+                <Button size="sm" className="w-full h-7" onClick={saveCustomPreset}>
+                  <Save className="h-3 w-3 mr-1" /> 保存
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={reset}>
+            <RotateCcw className="h-3 w-3 mr-1" /> 恢复默认
+          </Button>
+        </div>
       </div>
 
-      {/* 光谱预设库 */}
+      {/* 光谱预设库 — 内置 + 自定义 */}
       <div className="flex flex-wrap gap-1.5">
         {CONFIG.SPECTRAL_PRESETS.map((p) => (
           <button
@@ -177,6 +251,28 @@ export function SpectrumEditor() {
             />
             {p.name}
           </button>
+        ))}
+        {customPresets.map((p) => (
+          <div
+            key={p.key}
+            className="group inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-[11px] font-medium transition-all hover:border-amber-500 hover:bg-amber-500/10"
+          >
+            <button
+              onClick={() => applyPreset(p.key)}
+              className="inline-flex items-center gap-1.5"
+              title={`自定义预设 · ${p.points.length} 控制点`}
+            >
+              <Star className="h-2.5 w-2.5 text-amber-500" />
+              {p.name}
+            </button>
+            <button
+              onClick={() => deleteCustomPreset(p.key)}
+              className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/70 transition-opacity"
+              title="删除"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         ))}
       </div>
 

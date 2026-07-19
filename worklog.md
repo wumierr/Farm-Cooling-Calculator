@@ -388,3 +388,82 @@ src/components/calculator/
 5. **P2**：PWA 离线实际测试（断网验证缓存命中）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.4 迭代记录（2026-07-19 cron 第 4 轮）
+
+### 项目当前状态：✅ 稳定可用，自定义光谱预设 + 天气场景 + 图表交互增强
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：自定义光谱保存/加载、天气场景、图表 activeDot 均验证
+
+### 本轮完成的改进
+
+#### 1. P1 新功能：光谱预设自定义保存
+- **spectrum-editor.tsx** 新增"保存"按钮（Popover 弹出输入框）
+- 用户可将当前拖拽编辑的光谱曲线保存为自定义预设（命名）
+- 自定义预设以琥珀色边框 + ⭐ 图标显示在预设栏，与内置预设区分
+- hover 显示删除按钮（🗑）
+- 持久化到 localStorage `gcc:spectrum-presets:v1`，最多保留 20 条
+- **验证**：保存"测试自定义光谱"后，按钮栏显示该预设，可点击加载
+
+#### 2. P2 新功能：天气场景预设（6 种典型气候一键加载）
+- **presets.ts** 新增 `WEATHER_SCENARIOS`：6 种典型气候
+  - 🔥 盛夏极端（48°C/1900 PAR/45% RH）
+  - ☀️ 盛夏常规（45°C/1700/60%）— 默认
+  - 🌤️ 初夏温和（38°C/1400/65%）
+  - 🍂 秋季（35°C/1200/55%）
+  - 💧 高湿闷热（42°C/1500/85%）
+  - 🏜️ 干热风（44°C/1800/35%）
+- **input-panel.tsx** 天气区顶部新增场景按钮栏，点击一键填充 Tmax/Tmin/D/Imax/RH
+- **验证**：点击"盛夏极端"→ Tmax=48, Imax=1900 正确切换
+
+#### 3. P2 样式：图表 activeDot 高亮增强
+- Y 线 activeDot：r=7 + 主色填充 + 背景描边 2.5px + drop-shadow
+- A_rel 线 activeDot：r=5 + chart-3 色填充 + 背景描边 2px
+- hover 时数据点明显放大且带阴影，点击目标更大更易命中
+
+#### 4. P2 样式：打印样式增强 + 全局细节
+- **打印优化**：
+  - `tr, .section { break-inside: avoid }` 表格行不跨页断开
+  - `h1, h2, h3 { break-after: avoid }` 标题不孤立页底
+  - `@page { margin: 12mm }` 统一页边距
+- **全局细节**：
+  - 数字输入框隐藏 spinner（更简洁）
+  - `html { scroll-behavior: smooth }` 平滑滚动
+  - `::selection` 选中文本 primary 色高亮
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 自定义光谱保存 | ✅ 保存"测试自定义光谱"后显示为预设按钮 |
+| 自定义光谱加载 | ✅ 点击自定义预设按钮可加载曲线 |
+| 自定义光谱删除 | ✅ hover 显示删除按钮 |
+| 天气场景 6 种 | ✅ 盛夏极端/常规/初夏/秋季/高湿/干热 均可点击 |
+| 天气场景填充 | ✅ 盛夏极端 → Tmax=48, Imax=1900 |
+| 图表 activeDot | ✅ Y 线 r=7 带阴影，A_rel 线 r=5 |
+| 打印分页控制 | ✅ break-inside avoid 规则就绪 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/lib/calculator/
+└─ presets.ts                 # ★v2.4 WEATHER_SCENARIOS 6 种天气场景
+src/components/calculator/
+├─ spectrum-editor.tsx        # ★v2.4 自定义预设保存/加载/删除
+├─ input-panel.tsx            # ★v2.4 天气场景预设栏
+└─ result-chart.tsx           # ★v2.4 activeDot 高亮增强
+src/app/
+└─ globals.css                # ★v2.4 打印分页 + spinner 隐藏 + 选中文本
+```
+
+### 下一阶段建议优先事项
+1. **P1**：多日预报历史记录整合（多日计算也存入历史）
+2. **P2**：PWA 离线实际测试（断网验证缓存命中）
+3. **P2**：图表数据点可见 dots（当前仅 activeDot，可加小圆点标识每个 R 值）
+4. **P2**：输入参数 ±步进按钮（精细调节 Tmax 等）
+5. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

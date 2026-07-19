@@ -185,7 +185,13 @@ export function ResultChart() {
                 stroke="var(--chart-1)"
                 strokeWidth={2.5}
                 dot={false}
-                activeDot={{ r: 5 }}
+                activeDot={{
+                  r: 7,
+                  fill: 'var(--chart-1)',
+                  stroke: 'var(--background)',
+                  strokeWidth: 2.5,
+                  className: 'drop-shadow-sm',
+                }}
               />
               <Line
                 yAxisId="right"
@@ -196,6 +202,12 @@ export function ResultChart() {
                 strokeWidth={1.5}
                 strokeDasharray="5 3"
                 dot={false}
+                activeDot={{
+                  r: 5,
+                  fill: 'var(--chart-3)',
+                  stroke: 'var(--background)',
+                  strokeWidth: 2,
+                }}
                 opacity={0.7}
               />
               {/* 策略点标记 */}
