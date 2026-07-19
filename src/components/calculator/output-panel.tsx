@@ -47,9 +47,10 @@ function Warnings({ warnings }: { warnings: Warning[] }) {
 
 /* ── 最优结果卡片 ── */
 function OptimumCard() {
-  const { output, advice, params, plateau } = useCalculatorStore()
+  const { output, advice, params } = useCalculatorStore()
   if (!output?.optimum) return null
   const opt = output.optimum
+  const plateau = output.plateau
   const isSpectrum = params.calcMode === 'table' && params.tableSubMode === 'spectral'
   const displayR = isSpectrum && opt.S_total != null ? opt.S_total : opt.R
   const hasPlateau = plateau && Math.abs(plateau.rMax - plateau.rMin) > 0.005

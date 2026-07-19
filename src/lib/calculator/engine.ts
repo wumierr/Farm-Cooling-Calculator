@@ -26,41 +26,42 @@ import type {
  * 线性插值（含外推），按 xField 升序查找 yField
  * 调用方须保证 table 已排序
  */
-export function linearInterpolate<T extends Record<string, number>>(
-  table: T[], xField: keyof T, yField: keyof T, xVal: number,
+export function linearInterpolate<T extends object>(
+  table: readonly T[], xField: keyof T, yField: keyof T, xVal: number,
 ): number {
   const n = table.length;
   if (n === 0) return NaN;
-  if (n === 1) return table[0][yField];
+  const get = (row: T, field: keyof T): number => Number(row[field]);
+  if (n === 1) return get(table[0], yField);
 
   // 下界线性外推
-  if (xVal < table[0][xField]) {
-    const dx = table[1][xField] - table[0][xField];
-    if (Math.abs(dx) < 1e-9) return table[0][yField];
-    const slope = (table[1][yField] - table[0][yField]) / dx;
-    return table[0][yField] + slope * (xVal - table[0][xField]);
+  if (xVal < get(table[0], xField)) {
+    const dx = get(table[1], xField) - get(table[0], xField);
+    if (Math.abs(dx) < 1e-9) return get(table[0], yField);
+    const slope = (get(table[1], yField) - get(table[0], yField)) / dx;
+    return get(table[0], yField) + slope * (xVal - get(table[0], xField));
   }
   // 上界线性外推
-  if (xVal > table[n - 1][xField]) {
-    const dx = table[n - 1][xField] - table[n - 2][xField];
-    if (Math.abs(dx) < 1e-9) return table[n - 1][yField];
-    const slope = (table[n - 1][yField] - table[n - 2][yField]) / dx;
-    return table[n - 1][yField] + slope * (xVal - table[n - 1][xField]);
+  if (xVal > get(table[n - 1], xField)) {
+    const dx = get(table[n - 1], xField) - get(table[n - 2], xField);
+    if (Math.abs(dx) < 1e-9) return get(table[n - 1], yField);
+    const slope = (get(table[n - 1], yField) - get(table[n - 2], yField)) / dx;
+    return get(table[n - 1], yField) + slope * (xVal - get(table[n - 1], xField));
   }
 
   // 二分查找
   let lo = 0, hi = n - 1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (table[mid][xField] === xVal) return table[mid][yField];
-    else if (table[mid][xField] < xVal) lo = mid + 1;
+    if (get(table[mid], xField) === xVal) return get(table[mid], yField);
+    else if (get(table[mid], xField) < xVal) lo = mid + 1;
     else hi = mid - 1;
   }
   const i = hi;
-  const denom = table[i + 1][xField] - table[i][xField];
-  if (Math.abs(denom) < 1e-9) return table[i][yField];
-  const f = (xVal - table[i][xField]) / denom;
-  return table[i][yField] + f * (table[i + 1][yField] - table[i][yField]);
+  const denom = get(table[i + 1], xField) - get(table[i], xField);
+  if (Math.abs(denom) < 1e-9) return get(table[i], yField);
+  const f = (xVal - get(table[i], xField)) / denom;
+  return get(table[i], yField) + f * (get(table[i + 1], yField) - get(table[i], yField));
 }
 
 /* ================================================================

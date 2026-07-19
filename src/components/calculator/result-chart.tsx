@@ -18,7 +18,7 @@ interface ChartDatum extends ResultPoint {
 
 export function ResultChart() {
   const {
-    output, strategies, plateau,
+    output, strategies,
     setCustomStrategy, removeCustomStrategy, clearCustomStrategies,
   } = useCalculatorStore()
 
@@ -27,6 +27,7 @@ export function ResultChart() {
     return output.results.map((r) => ({ ...r, Rlabel: `${(r.R * 100).toFixed(0)}%` }))
   }, [output])
 
+  const plateau = output?.plateau ?? null
   const hasPlateau = plateau && Math.abs(plateau.rMax - plateau.rMin) > 0.005
 
   const chartConfig = {

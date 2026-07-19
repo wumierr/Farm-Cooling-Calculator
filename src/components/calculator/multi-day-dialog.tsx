@@ -90,6 +90,7 @@ export function MultiDayDialog() {
         Y: result.avgY,
         Tmax_cooled: result.days[0]?.Tmax_cooled ?? 0,
         deltaT: result.days[0]?.deltaT ?? 0,
+        L: result.cumulativeLoss,
         netBenefit: result.benefit.savedRevenue - (result.days[0]?.deltaT ?? 0) * 0, // 多日无单次成本
       },
       multiDay: {

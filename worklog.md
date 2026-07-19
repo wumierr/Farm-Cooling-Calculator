@@ -864,3 +864,94 @@ src/components/calculator/
 5. **P2**：成本效益图盈亏平衡点标注（netBenefit=0 的 R 值）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v3.0 迭代记录（2026-07-19 cron 第 8 轮 + bug 修复）
+
+### 项目当前状态：✅ 稳定可用，修复多个 TypeScript 类型错误 + 新增 3 项功能
+- 开发服务器运行正常（需注意 4GB 内存环境 OOM 风险）
+- ESLint 通过，TypeScript 类型检查通过（src/ 无错误）
+- agent-browser QA 验证：最优 R=29% 正常计算，盈亏平衡/成本效益图正常
+
+### 本轮完成的改进
+
+#### 1. Bug 修复：多个 TypeScript 类型错误（导致 OOM 的根因之一）
+- **linearInterpolate 泛型约束**：`Record<string, number>` → `object` + `readonly T[]`
+  - 原约束不接受含 string 字段（如 ratio）的 ProductRow
+  - 改用 `object` 约束 + `Number(row[field])` 安全转换
+- **plateau 引用修复**：
+  - output-panel.tsx OptimumCard：从 store 解构 plateau → 改为 `output.plateau`
+  - result-chart.tsx：同样从 `output?.plateau` 取值
+  - 根因：plateau 是 OptimizeOutput 的字段，非 CalculatorState
+- **history-dialog summary.L 缺失**：
+  - HistoryEntry.summary 接口新增 `L: number` 字段
+  - 单日记录创建时补 `L: opt.L`
+  - 多日记录创建时补 `L: result.cumulativeLoss`
+- **history-dialog params.activePreset**：
+  - `params.activePreset`（不存在于 CalcParams）→ 改为 `activePreset`（从 store 解构）
+
+#### 2. P2 新功能：成本效益图盈亏平衡点标注
+- **cost-benefit-chart.tsx** 新增 breakEvenR 计算：
+  - useMemo 线性插值找 netBenefit=0 的精确 R 值
+  - ReferenceLine 标注"盈亏平衡 XX%"（chart-5 色）
+  - 摘要卡新增第 4 格"盈亏平衡 R"
+  - 图例新增"盈亏平衡点"条目
+- 当所有 R 均盈利时 breakEvenR=null，不显示标注
+
+#### 3. P2 新功能：历史记录导入（JSON）
+- **history-dialog.tsx** 新增 importJSON 函数：
+  - FileReader 读取 JSON 文件
+  - 兼容两种格式：`{ entries: [...] }` 或直接 `[...]`
+  - 校验：每条须有 id + timestamp + type + summary
+  - 合并去重（按 id），保留最多 12 条
+  - 错误处理：格式不正确/无有效记录/解析失败
+- UI：导入按钮（Upload 图标），有/无历史记录时均显示
+
+#### 4. P2 功能：输入区折叠状态记忆
+- **input-panel.tsx** Accordion 改为受控：
+  - `value` + `onValueChange` 替代 `defaultValue`
+  - localStorage `gcc:accordion-state:v1` 持久化折叠状态
+  - loadAccordionState 函数安全读取（try-catch）
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| TypeScript 类型检查 | ✅ src/ 无错误 |
+| ESLint | ✅ 通过 |
+| 最优 R 计算 | ✅ R=29%, Y=0.9693 |
+| 盈亏平衡标注 | ✅ 摘要卡显示（当前所有 R 盈利，图表标注条件不显示）|
+| 成本效益图 | ✅ 渲染正常 |
+| 历史导入按钮 | ✅ 显示 |
+| 折叠记忆 | ✅ 代码就绪 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| OOM 风险 | ⚠️ 4GB 内存环境下 agent-browser 全页加载可能触发 OOM |
+
+### 已知风险
+- **OOM 风险**：开发环境仅 4GB 内存，Turbopack 编译 + Recharts 图表渲染可能触发 OOM
+  - 表现：agent-browser 加载完整页面后服务器进程被 kill
+  - 影响：QA 测试时需快速操作，避免长时间停留
+  - 缓解：已修复所有 TypeScript 错误减少编译负担；生产构建不受影响
+
+### 文件结构更新
+```
+src/lib/calculator/
+├─ engine.ts                  # ★v3.0 linearInterpolate 泛型约束修复
+└─ advice.ts                  # （无改动）
+src/components/calculator/
+├─ output-panel.tsx           # ★v3.0 OptimumCard plateau 引用修复
+├─ result-chart.tsx           # ★v3.0 plateau 引用修复
+├─ history-dialog.tsx         # ★v3.0 summary.L + activePreset 修复 + JSON 导入
+├─ multi-day-dialog.tsx       # ★v3.0 summary.L 补充
+├─ cost-benefit-chart.tsx     # ★v3.0 盈亏平衡点标注
+└─ input-panel.tsx            # ★v3.0 折叠状态记忆
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：A/B 对比盈亏分析（对比两场景的净收益差异）
+4. **P2**：优化内存占用（减少 Recharts 组件数量或懒加载）
+5. **P3**：多语言（next-intl 英文版）
+6. **P3**：跨设备配方同步（Prisma + API）

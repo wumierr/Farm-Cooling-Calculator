@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { History, RotateCcw, Trash2, Clock, Search, Filter, Download } from 'lucide-react'
+import { History, RotateCcw, Trash2, Clock, Search, Filter, Download, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -31,6 +31,7 @@ interface HistoryEntry {
     Y: number
     Tmax_cooled: number
     deltaT: number
+    L: number
     netBenefit: number | null
   }
   /** 多日场景特有字段 */
@@ -93,7 +94,7 @@ export function HistoryDialog() {
   React.useEffect(() => {
     if (!output?.optimum) return
     const opt = output.optimum
-    const key = `${opt.R.toFixed(2)}_${params.Tmax}_${params.activePreset}_${params.calcMode}`
+    const key = `${opt.R.toFixed(2)}_${params.Tmax}_${activePreset}_${params.calcMode}`
     if (key === lastSnapKey) return
     setLastSnapKey(key)
 
@@ -113,6 +114,7 @@ export function HistoryDialog() {
         Y: opt.Y,
         Tmax_cooled: opt.Tmax_cooled,
         deltaT: opt.deltaT,
+        L: opt.L,
         netBenefit: costBenefit?.netBenefit ?? null,
       },
     }
@@ -207,6 +209,45 @@ export function HistoryDialog() {
     toast.success(`已导出 ${history.length} 条记录 (CSV)`)
   }
 
+  // 导入历史记录（JSON）
+  const importJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string)
+        // 兼容两种格式：{ entries: [...] } 或直接 [...]
+        const entries: HistoryEntry[] = Array.isArray(data) ? data : data.entries
+        if (!Array.isArray(entries)) {
+          toast.error('文件格式不正确：未找到 entries 数组')
+          return
+        }
+        // 基本校验：每条须有 id + timestamp + type + summary
+        const valid = entries.filter(
+          (h) => h && typeof h.id === 'string' && typeof h.timestamp === 'number'
+            && (h.type === 'single' || h.type === 'multi-day') && h.summary,
+        )
+        if (valid.length === 0) {
+          toast.error('文件中无有效历史记录')
+          return
+        }
+        // 合并去重（按 id），保留最多 12 条
+        const existing = loadHistory()
+        const merged = [...valid, ...existing].filter(
+          (h, i, arr) => arr.findIndex((x) => x.id === h.id) === i,
+        ).slice(0, 12)
+        saveHistory(merged)
+        setHistory(merged)
+        toast.success(`已导入 ${valid.length} 条记录（合并后共 ${merged.length} 条）`)
+      } catch (err) {
+        toast.error('解析失败：' + (err instanceof Error ? err.message : '未知错误'))
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = '' // 允许重复导入同文件
+  }
+
   // 搜索/筛选状态
   const [searchQuery, setSearchQuery] = React.useState('')
   const [typeFilter, setTypeFilter] = React.useState<'all' | 'single' | 'multi-day'>('all')
@@ -277,10 +318,24 @@ export function HistoryDialog() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                  <label className="cursor-pointer">
+                    <Upload className="h-3 w-3 mr-1" /> 导入
+                    <input type="file" accept=".json" className="hidden" onChange={importJSON} />
+                  </label>
+                </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={handleClear}>
                   <Trash2 className="h-3 w-3 mr-1" /> 清空
                 </Button>
               </div>
+            )}
+            {history.length === 0 && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                <label className="cursor-pointer">
+                  <Upload className="h-3 w-3 mr-1" /> 导入
+                  <input type="file" accept=".json" className="hidden" onChange={importJSON} />
+                </label>
+              </Button>
             )}
           </DialogTitle>
           <DialogDescription className="text-xs">

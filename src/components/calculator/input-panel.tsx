@@ -297,17 +297,39 @@ function KMappingEditor() {
 /* ── 光谱编辑器（可视化拖拽版，实现在 spectrum-editor.tsx） ── */
 
 /* ── 主输入面板 ── */
+const ACCORDION_KEY = 'gcc:accordion-state:v1'
+
+function loadAccordionState(): string[] {
+  try {
+    const raw = localStorage.getItem(ACCORDION_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return ['plant', 'weather', 'cooling', 'op']
+}
+
 export function InputPanel() {
   const { params, setParam, setParams, reset, validation } = useCalculatorStore()
   const isTable = params.calcMode === 'table'
   const isSpectral = isTable && params.tableSubMode === 'spectral'
   const invalid = new Set(validation.invalidFields)
 
+  // 折叠状态记忆
+  const [accordionValue, setAccordionValue] = React.useState<string[]>(loadAccordionState)
+  const handleAccordionChange = (value: string[]) => {
+    setAccordionValue(value)
+    try { localStorage.setItem(ACCORDION_KEY, JSON.stringify(value)) } catch {}
+  }
+
   return (
     <div className="space-y-3">
       <PresetSelector />
 
-      <Accordion type="multiple" defaultValue={['plant', 'weather', 'cooling', 'op']} className="space-y-3">
+      <Accordion
+        type="multiple"
+        value={accordionValue}
+        onValueChange={handleAccordionChange}
+        className="space-y-3"
+      >
         {/* 植物参数 */}
         <AccordionItem value="plant" className="border rounded-lg overflow-hidden bg-card">
           <AccordionTrigger className="px-4 py-3 hover:no-underline">

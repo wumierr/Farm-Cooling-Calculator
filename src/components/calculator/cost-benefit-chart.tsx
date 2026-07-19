@@ -20,6 +20,25 @@ export function CostBenefitChart() {
     return calcCostBenefitCurve(output.results, params, output.baseline)
   }, [output, params])
 
+  // 盈亏平衡点：netBenefit 从负转正（或零）的 R 值
+  // 线性插值找 netBenefit=0 的精确 R（须在 early return 之前调用 hook）
+  const breakEvenR = React.useMemo(() => {
+    if (data.length < 2) return null
+    for (let i = 1; i < data.length; i++) {
+      const prev = data[i - 1]
+      const curr = data[i]
+      if (prev.netBenefit <= 0 && curr.netBenefit > 0) {
+        const t = -prev.netBenefit / (curr.netBenefit - prev.netBenefit)
+        return prev.R + t * (curr.R - prev.R)
+      }
+      if (prev.netBenefit > 0 && curr.netBenefit <= 0) {
+        const t = prev.netBenefit / (prev.netBenefit - curr.netBenefit)
+        return prev.R + t * (curr.R - prev.R)
+      }
+    }
+    return null
+  }, [data])
+
   if (!data.length) return null
 
   const optR = output?.optimum?.R
@@ -162,6 +181,22 @@ export function CostBenefitChart() {
                   strokeOpacity={0.4}
                 />
               )}
+              {/* 盈亏平衡点标记（netBenefit=0 的 R 值） */}
+              {breakEvenR != null && (
+                <ReferenceLine
+                  x={`${(breakEvenR * 100).toFixed(0)}%`}
+                  stroke="var(--chart-5)"
+                  strokeDasharray="3 2"
+                  strokeOpacity={0.6}
+                  label={{
+                    value: `盈亏平衡 ${(breakEvenR * 100).toFixed(0)}%`,
+                    position: 'top',
+                    fill: 'var(--chart-5)',
+                    fontSize: 9,
+                    fontWeight: 600,
+                  }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -184,10 +219,16 @@ export function CostBenefitChart() {
             <span className="inline-block w-3 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--destructive)' }} />
             <span className="text-muted-foreground">粉剂成本</span>
           </span>
+          {breakEvenR != null && (
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-0.5 border-t border-dashed" style={{ borderColor: 'var(--chart-5)' }} />
+              <span className="text-muted-foreground">盈亏平衡点</span>
+            </span>
+          )}
         </div>
 
         {/* 摘要 */}
-        <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+        <div className="grid grid-cols-4 gap-2 mt-2 text-xs">
           <div className="rounded bg-muted/30 p-1.5 text-center">
             <div className="text-[10px] text-muted-foreground">最优 R 净收益</div>
             <div className="font-bold tabular-nums text-primary">
@@ -204,6 +245,12 @@ export function CostBenefitChart() {
             <div className="text-[10px] text-muted-foreground">最大收益 R</div>
             <div className="font-bold tabular-nums">
               {maxBenefitPoint ? `${(maxBenefitPoint.R * 100).toFixed(0)}%` : '--'}
+            </div>
+          </div>
+          <div className="rounded bg-chart-5/10 p-1.5 text-center">
+            <div className="text-[10px] text-muted-foreground">盈亏平衡 R</div>
+            <div className="font-bold tabular-nums" style={{ color: 'var(--chart-5)' }}>
+              {breakEvenR != null ? `${(breakEvenR * 100).toFixed(0)}%` : '无'}
             </div>
           </div>
         </div>
