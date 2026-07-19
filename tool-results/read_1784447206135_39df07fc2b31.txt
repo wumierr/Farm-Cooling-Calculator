@@ -1,0 +1,702 @@
+  1700→      Tmax_cooled:  +(Tmax - deltaT).toFixed(1),
+  1701→      deltaT:       +deltaT.toFixed(1),
+  1702→      S_total:      K_solar != null ? +(R * K_solar).toFixed(3) : null
+  1703→    });
+  1704→
+  1705→    if (Y > bestY) {
+  1706→      bestY     = Y;
+  1707→      bestIndex = results.length - 1;
+  1708→    }
+  1709→  }
+  1710→
+  1711→  /* 近优平台区间 */
+  1712→  let plateauRMin = null;
+  1713→  let plateauRMax = null;
+  1714→  if (bestIndex >= 0 && bestY > -Infinity) {
+  1715→    const near = results.filter(r => r.Y >= bestY * (1 - CONFIG.PLATEAU_EPSILON));
+  1716→    if (near.length > 0) {
+  1717→      plateauRMin = Math.min(...near.map(r => r.R));
+  1718→      plateauRMax = Math.max(...near.map(r => r.R));
+  1719→    }
+  1720→  }
+  1721→
+  1722→  let optimum = null;
+  1723→  if (plateauRMin != null) {
+  1724→    optimum = results.find(r => Math.abs(r.R - plateauRMin) < 1e-6) || results[bestIndex];
+  1725→  } else if (bestIndex >= 0) {
+  1726→    optimum = results[bestIndex];
+  1727→  }
+  1728→
+  1729→  return { results, optimum, plateauRMin, plateauRMax, bestIndex, error: null };
+  1730→}
+  1731→
+  1732→/**
+  1733→ * 计算喷雾器分批信息
+  1734→ * @param {number} powderKg  总粉量 (kg)
+  1735→ * @param {number} waterL    总水量 (L)
+  1736→ * @param {number} sprayerCap 喷雾器容量 (L)
+  1737→ * @param {boolean} isEstimate 是否为估算值
+  1738→ */
+  1739→function getSprayerBatches(powderKg, waterL, sprayerCap, isEstimate) {
+  1740→  if (!sprayerCap || sprayerCap <= 0) {
+  1741→    return { batches: 0, powderPerBatch: 0, waterPerBatch: 0, safeCap: 0, isEstimate };
+  1742→  }
+  1743→  const safeCap = sprayerCap * CONFIG.SPRAYER_SAFETY_FACTOR;
+  1744→  const batches = Math.ceil(waterL / safeCap);
+  1745→  return {
+  1746→    batches,
+  1747→    powderPerBatch: powderKg / batches,
+  1748→    waterPerBatch:  waterL / batches,
+  1749→    safeCap,
+  1750→    isEstimate
+  1751→  };
+  1752→}
+  1753→
+  1754→/** 表格模式建议
+  1755→ * @param {number} sTotalOpt — 光谱模式的 S_total，非 null 时替代 Ropt 查表
+  1756→ */
+  1757→function getTableAdvice(Ropt, productTable, sprayAreaMu, sTotalOpt = null) {
+  1758→  if (!productTable || productTable.length < 2) {
+  1759→    return {
+  1760→      value: '产品数据至少需要 2 行',
+  1761→      status: 'insufficient',
+  1762→      detail: null
+  1763→    };
+  1764→  }
+  1765→
+  1766→  const refs = productTable.map(r => r.reflectance);
+  1767→  const rMin = Math.min(...refs);
+  1768→  const rMax = Math.max(...refs);
+  1769→
+  1770→  // 光谱模式：用 S_total 替代 Ropt 查表，并校验范围
+  1771→  const lookupVal = (sTotalOpt != null) ? sTotalOpt : Ropt;
+  1772→
+  1773→  if (lookupVal < rMin || lookupVal > rMax) {
+  1774→    const p = v => (v * 100).toFixed(0) + '%';
+  1775→    if (sTotalOpt != null) {
+  1776→      return {
+  1777→        value: `该光谱曲线算出的总遮阳率 S_total=${p(sTotalOpt)}，已超出当前产品数据的有效范围 [${p(rMin)}–${p(rMax)}]，请调整光谱曲线或补充产品数据`,
+  1778→        status: 'out_of_range',
+  1779→        detail: null
+  1780→      };
+  1781→    }
+  1782→    return {
+  1783→      value: `R_opt 超出产品数据范围 [${p(rMin)}–${p(rMax)}]，请扩展`,
+  1784→      status: 'out_of_range',
+  1785→      detail: null
+  1786→    };
+  1787→  }
+  1788→
+  1789→  const ratioStr   = nearestStr(productTable, 'reflectance', 'ratio', lookupVal);
+  1790→  const coverage   = linearInterpolate(productTable, 'reflectance', 'coverage', lookupVal);
+  1791→  const totalM2    = (sprayAreaMu || 1) * CONFIG.MU_TO_M2;
+  1792→  const powderKg   = totalM2 / coverage;
+  1793→  const waterRatio = parseFloat(ratioStr.split(':')[1]) || 8;
+  1794→  const waterL     = powderKg * waterRatio;
+  1795→
+  1796→  return {
+  1797→    value: [
+  1798→      `兑水比 ${ratioStr}`,
+  1799→      `每 kg 粉喷 ${coverage.toFixed(0)} ㎡`,
+  1800→      `共需 ${powderKg.toFixed(1)} kg 粉 + ${waterL.toFixed(0)} L 水`
+  1801→    ].join('  ·  '),
+  1802→    status: 'ok',
+  1803→    detail: {
+  1804→      ratio:    ratioStr,
+  1805→      coverage: `${coverage.toFixed(0)} ㎡/kg`,
+  1806→      powder:   String(powderKg),
+  1807→      water:    String(waterL),
+  1808→      powderKg,
+  1809→      waterL,
+  1810→      isEstimate: false
+  1811→    }
+  1812→  };
+  1813→}
+  1814→
+  1815→/**
+  1816→ * K 值模式稀释比建议（含估算 detail）
+  1817→ * 基于 standardRatio → coverage 经验映射估算
+  1818→ */
+  1819→function interpolateDilution(Ropt, mapping, sprayAreaMu) {
+  1820→  const muToM2 = (sprayAreaMu || 1) * CONFIG.MU_TO_M2;
+  1821→
+  1822→  if (!mapping || mapping.length === 0) {
+  1823→    return { value: '请填写稀释比映射表', status: 'empty', mode: 'k', detail: null };
+  1824→  }
+  1825→  if (mapping.length < 2) {
+  1826→    return { value: '请至少填写两组映射数据', status: 'insufficient', mode: 'k', detail: null };
+  1827→  }
+  1828→
+  1829→  const sorted = [...mapping].sort((a, b) => a.r - b.r);
+  1830→
+  1831→  if (Ropt < sorted[0].r || Ropt > sorted[sorted.length - 1].r) {
+  1832→    const p = v => (v * 100).toFixed(0) + '%';
+  1833→    return {
+  1834→      value: `R_opt 超出范围 [${p(sorted[0].r)}–${p(sorted[sorted.length - 1].r)}]`,
+  1835→      status: 'out_of_range',
+  1836→      mode: 'k',
+  1837→      detail: null
+  1838→    };
+  1839→  }
+  1840→
+  1841→  let lo = sorted[0];
+  1842→  let hi = sorted[sorted.length - 1];
+  1843→  for (let i = 0; i < sorted.length - 1; i++) {
+  1844→    if (Ropt >= sorted[i].r && Ropt <= sorted[i + 1].r) {
+  1845→      lo = sorted[i];
+  1846→      hi = sorted[i + 1];
+  1847→      break;
+  1848→    }
+  1849→  }
+  1850→
+  1851→  const ratio = (Math.abs(hi.r - lo.r) < 1e-9)
+  1852→    ? lo.ratio
+  1853→    : lo.ratio + (Ropt - lo.r) / (hi.r - lo.r) * (hi.ratio - lo.ratio);
+  1854→
+  1855→  // 基于 CONFIG.K_MODE_COVERAGE_MAP 二分插值估算 coverage
+  1856→  const ratioCovg = CONFIG.K_MODE_COVERAGE_MAP;
+  1857→  const ri = Math.max(1, Math.min(20, ratio));
+  1858→  const estCoverage = Math.max(50, Math.min(5000, linearInterpolate(ratioCovg, 'r', 'c', ri)));
+  1859→
+  1860→  const powderKg = muToM2 / estCoverage;
+  1861→  const waterL   = powderKg * ratio;
+  1862→
+  1863→  return {
+  1864→    value: `建议兑水比例 1:${ratio.toFixed(1)}`,
+  1865→    status: 'ok',
+  1866→    mode: 'k',
+  1867→    detail: {
+  1868→      ratio:    `1:${ratio.toFixed(1)}`,
+  1869→      coverage: `${estCoverage.toFixed(0)} ㎡/kg (估算)`,
+  1870→      powder:   String(powderKg),
+  1871→      water:    String(waterL),
+  1872→      powderKg,
+  1873→      waterL,
+  1874→      isEstimate: true
+  1875→    }
+  1876→  };
+  1877→}
+  1878→
+  1879→const STRATEGY_DEFS = {
+  1880→  safe_save:     { name: '安全省钱 (基准)', color: '#2d6a4f', isBase: true },
+  1881→  max_y:         { name: '最高效益',        color: '#c0392b', isBase: false },
+  1882→  absolute_temp: { name: '绝对保温度',       color: '#1976d2', isBase: false }
+  1883→};
+  1884→
+  1885→/** 安全省钱：近优平台 1/4 分位，若无平台则回退 bestIndex */
+  1886→function safeSavePoint(results, bestIndex, plateau) {
+  1887→  if (plateau && plateau.rMin != null && plateau.rMax != null) {
+  1888→    const rQuarter = plateau.rMin + (plateau.rMax - plateau.rMin) * CONFIG.PLATEAU_QUARTER;
+  1889→    let nearestIdx = bestIndex, minDiff = Infinity;
+  1890→    for (let i = 0; i < results.length; i++) {
+  1891→      const diff = Math.abs(results[i].R - rQuarter);
+  1892→      if (diff < minDiff) { minDiff = diff; nearestIdx = i; }
+  1893→    }
+  1894→    return results[nearestIdx];
+  1895→  }
+  1896→  return results[bestIndex];
+  1897→}
+  1898→
+  1899→function makeStrategyPoint(id, def, data, type) {
+  1900→  return {
+  1901→    id, name: def.name, color: def.color, type: type || 'preset',
+  1902→    isBase: def.isBase, data: {
+  1903→      R: data.R, Y: data.Y, A_rel: data.A_rel, L: data.L,
+  1904→      HHA: data.HHA, Tmax_cooled: data.Tmax_cooled, deltaT: data.deltaT,
+  1905→      S_total: data.S_total || null
+  1906→    }, advice: null
+  1907→  };
+  1908→}
+  1909→
+  1910→/**
+  1911→ * @param {Array} results — findOptimalR 返回的 results 数组
+  1912→ * @param {number} bestIndex — 最高 Y 的索引
+  1913→ * @param {object} plateau — { rMin, rMax } 或 null
+  1914→ * @param {object} params — 用户输入参数（含 T0）
+  1915→ * @param {object} enabledFlags — { safe_save: true, max_y: boolean, absolute_temp: boolean }
+  1916→ * @returns {{ points: Array, warnings: Array }}
+  1917→ */
+  1918→function extractStrategies(results, bestIndex, plateau, params, enabledFlags) {
+  1919→  const points = [];
+  1920→  const warnings = [];
+  1921→  if (!results || results.length === 0) return { points, warnings };
+  1922→
+  1923→  // 安全省钱始终生成
+  1924→  const baseData = safeSavePoint(results, bestIndex, plateau);
+  1925→  points.push(makeStrategyPoint('safe_save', STRATEGY_DEFS.safe_save, baseData, 'preset'));
+  1926→
+  1927→  if (enabledFlags.max_y) {
+  1928→    const maxPt = results[bestIndex];
+  1929→    points.push(makeStrategyPoint('max_y', STRATEGY_DEFS.max_y, maxPt, 'preset'));
+  1930→  }
+  1931→
+  1932→  if (enabledFlags.absolute_temp) {
+  1933→    const safeResults = results.filter(r => r.Tmax_cooled <= params.T0 + 0.05);
+  1934→    if (safeResults.length === 0) {
+  1935→      warnings.push({ level: 'warning',
+  1936→        text: '当前气候极端，降温剂无法保证棚温降至阈值以下，建议结合遮阳网或通风措施' });
+  1937→    } else {
+  1938→      // 取温度安全范围内综合效益最优（而非最小R卡边，天气微变就破防）
+  1939→      const bestInSafe = safeResults.reduce((a, b) => a.Y > b.Y ? a : b);
+  1940→      points.push(makeStrategyPoint('absolute_temp', STRATEGY_DEFS.absolute_temp, bestInSafe, 'preset'));
+  1941→    }
+  1942→  }
+  1943→
+  1944→  return { points, warnings };
+  1945→}
+  1946→
+  1947→function evaluatePointWarnings(point, params) {
+  1948→  const warnings = [];
+  1949→  const { data } = point;
+  1950→  if (data.Tmax_cooled > params.T0) {
+  1951→    warnings.push({ level: 'warning',
+  1952→      text: `降温后棚温仍达 ${data.Tmax_cooled}°C，超过 HHA 阈值 (${params.T0}°C)，存在热害风险` });
+  1953→  }
+  1954→  if (data.A_rel < 0.60) {
+  1955→    warnings.push({ level: 'warning',
+  1956→      text: `光合保留率仅 ${(data.A_rel * 100).toFixed(0)}%，过度遮阳可能严重影响产量` });
+  1957→  }
+  1958→  if (data.L > 0.20) {
+  1959→    warnings.push({ level: 'warning',
+  1960→      text: `理论产量损失率达 ${(data.L * 100).toFixed(0)}%，建议结合物理降温措施` });
+  1961→  }
+  1962→  if (data.R >= CONFIG.R_MAX - 0.005) {
+  1963→    warnings.push({ level: 'info',
+  1964→      text: '该策略遮阳率已达系统上限，可能仍不满足需求' });
+  1965→  }
+  1966→  return warnings;
+  1967→}
+  1968→
+  1969→function evaluateEnvWarnings(params) {
+  1970→  const env = [];
+  1971→  if (params.Tmax > 50) {
+  1972→    env.push({ level: 'warning',
+  1973→      text: `棚内日最高温 ${params.Tmax}°C 属极端高温，植物生理机能可能已受不可逆损伤` });
+  1974→  }
+  1975→  if (params.RH > 85) {
+  1976→    env.push({ level: 'warning',
+  1977→      text: `棚内日间均湿 ${params.RH}% 过高，阻碍蒸腾，建议加强通风` });
+  1978→  }
+  1979→  if (params.Tmin < 10) {
+  1980→    env.push({ level: 'info',
+  1981→      text: `夜间最低温 ${params.Tmin}°C 偏低，需关注冷害风险` });
+  1982→  }
+  1983→  return env;
+  1984→}
+  1985→
+  1986→let chartInstance = null;
+  1987→
+  1988→/** 主渲染函数 */
+  1989→function renderChart(results, optimum, activeStrategies, onCustomPointAdd, onPresetPointClick, plateau) {
+  1990→  const ctx = document.getElementById('yieldChart').getContext('2d');
+  1991→  const ph  = document.getElementById('chart-placeholder');
+  1992→
+  1993→  if (!results || !results.length) {
+  1994→    ph.style.display = 'flex';
+  1995→    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  1996→    return;
+  1997→  }
+  1998→
+  1999→  ph.style.display = 'none';
+  2000→
+  2001→  const hasPlateau = plateau && plateau.rMin != null && plateau.rMax != null
+  2002→    && Math.abs(plateau.rMax - plateau.rMin) > 0.005;
+  2003→
+  2004→  const labels  = results.map(r => (r.R * 100).toFixed(0) + '%');
+  2005→  const yData   = results.map(r => r.Y);
+  2006→  const pColors = results.map(() => 'rgba(45,106,79,0.3)');
+  2007→  const pSizes  = results.map(() => 3);
+  2008→
+  2009→  if (chartInstance) {
+  2010→    chartInstance.data.labels = labels;
+  2011→    chartInstance.data.datasets[0].data = yData;
+  2012→    chartInstance.data.datasets[0].pointBackgroundColor = pColors;
+  2013→    chartInstance.data.datasets[0].pointRadius = pSizes;
+  2014→    chartInstance.optPluginData = { results, optimum, plateau, hasPlateau, activeStrategies, onCustomPointAdd, onPresetPointClick };
+  2015→    chartInstance.update('none');
+  2016→  } else {
+  2017→    chartInstance = new Chart(ctx, {
+  2018→      type: 'line',
+  2019→      data: {
+  2020→        labels,
+  2021→        datasets: [{
+  2022→          label: '综合效益 Y', data: yData,
+  2023→          borderColor: '#2d6a4f', backgroundColor: 'rgba(45,106,79,0.06)',
+  2024→          borderWidth: 2.5, fill: true, tension: 0.35,
+  2025→          pointBackgroundColor: pColors, pointBorderColor: pColors,
+  2026→          pointRadius: pSizes, pointHoverRadius: 7, pointBorderWidth: 1
+  2027→        }]
+  2028→      },
+  2029→      options: {
+  2030→        responsive: true, maintainAspectRatio: false,
+  2031→        onClick: (event, elements, chart) => {
+  2032→          if (elements.length > 0) {
+  2033→            const index = elements[0].index;
+  2034→            const r = chart.optPluginData.results[index];
+  2035→            if (!r) return;
+  2036→            const strategies = chart.optPluginData.activeStrategies || [];
+  2037→            // 命中已有自定义点 → 删除
+  2038→            const existingCustom = strategies.find(s =>
+  2039→              s.type === 'custom' && Math.abs(s.data.R - r.R) < 0.005);
+  2040→            if (existingCustom) {
+  2041→              if (chart.optPluginData.onCustomPointDelete) {
+  2042→                chart.optPluginData.onCustomPointDelete(existingCustom.id);
+  2043→              }
+  2044→              return;
+  2045→            }
+  2046→            // 命中预设点 → Toast
+  2047→            if (strategies.some(s => s.type === 'preset' && Math.abs(s.data.R - r.R) < 0.005)) {
+  2048→              if (chart.optPluginData.onPresetPointClick) {
+  2049→                chart.optPluginData.onPresetPointClick();
+  2050→              }
+  2051→              return;
+  2052→            }
+  2053→            // 正常新增
+  2054→            if (chart.optPluginData.onCustomPointAdd) {
+  2055→              chart.optPluginData.onCustomPointAdd(r);
+  2056→            }
+  2057→          }
+  2058→        },
+  2059→        interaction: { intersect: false, mode: 'index' },
+  2060→        plugins: {
+  2061→          legend: { display: true, labels: { usePointStyle: true, padding: 20 } },
+  2062→          tooltip: { callbacks: { label(ctx) {
+  2063→            const r = ctx.chart.optPluginData.results[ctx.dataIndex];
+  2064→            return [`Y:${r.Y.toFixed(4)}`,`A_rel:${(r.A_rel*100).toFixed(1)}%`,`L:${(r.L*100).toFixed(1)}%`,`HHA:${r.HHA.toFixed(1)}°C·h`,`棚温:${r.Tmax_cooled}°C`];
+  2065→          }}}
+  2066→        },
+  2067→        scales: {
+  2068→          x: { title: { display: true, text: '遮阳率 R', font: { weight: 'bold' } }, grid: { color: '#eee' } },
+  2069→          y: { title: { display: true, text: '综合效益 Y', font: { weight: 'bold' } }, min: 0, max: 1, grid: { color: '#eee' } }
+  2070→        }
+  2071→      },
+  2072→      plugins: [optAnnotationPlugin()]
+  2073→    });
+  2074→    chartInstance.optPluginData = { results, optimum, plateau, hasPlateau, activeStrategies, onCustomPointAdd, onPresetPointClick };
+  2075→  }
+  2076→}
+  2077→
+  2078→function destroyChart() {
+  2079→  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  2080→}
+  2081→
+  2082→function optAnnotationPlugin() {
+  2083→  return {
+  2084→    id: 'optAnno',
+  2085→    beforeDatasetsDraw(chart) {
+  2086→      const { results, plateau, hasPlateau } = chart.optPluginData || {};
+  2087→      if (!hasPlateau) return;
+  2088→      const meta = chart.getDatasetMeta(0);
+  2089→      if (!meta.data || !meta.data.length) return;
+  2090→      const iMin = results.findIndex(r => Math.abs(r.R - plateau.rMin) < 0.005);
+  2091→      const iMax = results.findIndex(r => Math.abs(r.R - plateau.rMax) < 0.005);
+  2092→      if (iMin < 0 || iMax < 0) return;
+  2093→      const { ctx, chartArea } = chart;
+  2094→      ctx.save();
+  2095→      ctx.fillStyle = 'rgba(255, 193, 7, 0.12)';
+  2096→      ctx.fillRect(Math.min(meta.data[iMin].x, meta.data[iMax].x), chartArea.top,
+  2097→        Math.abs(meta.data[iMax].x - meta.data[iMin].x), chartArea.bottom - chartArea.top);
+  2098→      ctx.restore();
+  2099→    },
+  2100→    afterDraw(chart) {
+  2101→      const { ctx, chartArea } = chart;
+  2102→      const { results, activeStrategies } = chart.optPluginData || {};
+  2103→      const meta = chart.getDatasetMeta(0);
+  2104→      if (!meta.data || !meta.data.length) return;
+  2105→
+  2106→      if (!activeStrategies || !activeStrategies.length) return;
+  2107→
+  2108→      // 按 R 分组（整数键）
+  2109→      const groups = {};
+  2110→      activeStrategies.forEach(s => {
+  2111→        const key = Math.round(s.data.R * 200);
+  2112→        if (!groups[key]) groups[key] = [];
+  2113→        groups[key].push(s);
+  2114→      });
+  2115→
+  2116→      Object.values(groups).forEach(group => {
+  2117→        const first = group[0];
+  2118→        const idx = results.findIndex(r => Math.abs(r.R - first.data.R) < 0.005);
+  2119→        if (idx < 0) return;
+  2120→        const pt = meta.data[idx];
+  2121→        if (!pt) return;
+  2122→
+  2123→        // 垂直虚线（save/restore 防污染）
+  2124→        ctx.save();
+  2125→        ctx.setLineDash([4, 4]);
+  2126→        ctx.strokeStyle = first.color + '80';
+  2127→        ctx.lineWidth = 1;
+  2128→        ctx.beginPath();
+  2129→        ctx.moveTo(pt.x, chartArea.top);
+  2130→        ctx.lineTo(pt.x, pt.y);
+  2131→        ctx.stroke();
+  2132→        ctx.restore();
+  2133→
+  2134→        const radius = 6;
+  2135→        const sliceAngle = (Math.PI * 2) / group.length;
+  2136→        const startOffset = -Math.PI / 2;
+  2137→
+  2138→        if (group.length === 1) {
+  2139→          // 单点：实心圆
+  2140→          ctx.save();
+  2141→          ctx.fillStyle = first.color;
+  2142→          ctx.beginPath();
+  2143→          ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+  2144→          ctx.fill();
+  2145→          ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+  2146→          ctx.stroke();
+  2147→          ctx.restore();
+  2148→        } else {
+  2149→          // 重合点：扇区 + 放射短文本
+  2150→          group.forEach((s, i) => {
+  2151→            const a0 = startOffset + i * sliceAngle;
+  2152→            const a1 = a0 + sliceAngle;
+  2153→
+  2154→            ctx.beginPath();
+  2155→            ctx.moveTo(pt.x, pt.y);
+  2156→            ctx.arc(pt.x, pt.y, radius, a0, a1);
+  2157→            ctx.closePath();
+  2158→            ctx.fillStyle = s.color; ctx.fill();
+  2159→            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  2160→          });
+  2161→        }
+  2162→      });
+  2163→    }
+  2164→  };
+  2165→}
+  2166→
+  2167→/* ================================================================
+  2168→   最优结果卡片 & 详细指标表
+  2169→   ================================================================ */
+  2170→
+  2171→function updateOutput(optimum, adviceResult, sprayArea, powderPrice, plateau) {
+  2172→  const card  = document.getElementById('optimum-card');
+  2173→  const dCard = document.getElementById('detail-card');
+  2174→  const pCard = document.getElementById('plateau-info');
+  2175→
+  2176→  if (!optimum) {
+  2177→    card.style.display  = 'none';
+  2178→    dCard.style.display = 'none';
+  2179→    if (pCard) pCard.style.display = 'none';
+  2180→    return;
+  2181→  }
+  2182→
+  2183→  card.style.display  = 'block';
+  2184→  dCard.style.display = 'block';
+  2185→
+  2186→  /* 近优平台区间 */
+  2187→  if (pCard) {
+  2188→    const hasPlateau = plateau && plateau.rMin != null && plateau.rMax != null
+  2189→      && Math.abs(plateau.rMax - plateau.rMin) > 0.005;
+  2190→    if (hasPlateau) {
+  2191→      document.getElementById('plateau-range').textContent =
+  2192→        (plateau.rMin * 100).toFixed(0) + '% - ' + (plateau.rMax * 100).toFixed(0) + '%';
+  2193→      pCard.style.display = 'flex';
+  2194→    } else {
+  2195→      pCard.style.display = 'none';
+  2196→    }
+  2197→  }
+  2198→
+  2199→  /* 最优卡片 */
+  2200→  document.getElementById('opt-r').textContent      = (optimum.R * 100).toFixed(0) + '%';
+  2201→  document.getElementById('opt-y').textContent      = optimum.Y.toFixed(4);
+  2202→  document.getElementById('opt-tmax').textContent   = optimum.Tmax_cooled + ' °C';
+  2203→  document.getElementById('opt-deltaT').textContent = optimum.deltaT + ' °C';
+  2204→
+  2205→  /* 配比建议 */
+  2206→  const aEl = document.getElementById('dilution-advice');
+  2207→  if (adviceResult) {
+  2208→    aEl.textContent = adviceResult.value;
+  2209→    aEl.className   = 'dilution-advice' + (adviceResult.status !== 'ok' ? ' warning' : '');
+  2210→  } else {
+  2211→    aEl.textContent = '--';
+  2212→    aEl.className   = 'dilution-advice';
+  2213→  }
+  2214→
+  2215→  /* 详细指标 — 固定部分 */
+  2216→  document.getElementById('det-arel').textContent        = (optimum.A_rel * 100).toFixed(2) + '%';
+  2217→  document.getElementById('det-hha').textContent         = optimum.HHA.toFixed(1) + ' °C·h';
+  2218→  document.getElementById('det-l').textContent           = (optimum.L * 100).toFixed(1) + '%';
+  2219→  document.getElementById('det-tmaxcooled').textContent  = optimum.Tmax_cooled + ' °C';
+  2220→  document.getElementById('det-deltaT').textContent      = optimum.deltaT + ' °C';
+  2221→
+  2222→  const isEst = adviceResult && adviceResult.detail && adviceResult.detail.isEstimate;
+  2223→  const d = (adviceResult && adviceResult.detail) ? adviceResult.detail : null;
+  2224→
+  2225→  /* 兑水比 / 覆盖面积 / 粉剂 / 水量 */
+  2226→  document.getElementById('det-ratio').textContent    = d ? d.ratio    : '--';
+  2227→  document.getElementById('det-coverage').textContent = d ? d.coverage : '--';
+  2228→  document.getElementById('det-powder').textContent   = d ? (parseFloat(d.powderKg||0).toFixed(1) + ' kg' + (isEst ? ' (估算)' : '')) : '--';
+  2229→  document.getElementById('det-water').textContent    = d ? (parseFloat(d.waterL||0).toFixed(0) + ' L' + (isEst ? ' (估算)' : '')) : '--';
+  2230→
+  2231→  /* 喷雾器批次 */
+  2232→  const bi = (adviceResult && adviceResult.batchInfo && adviceResult.batchInfo.batches > 0)
+  2233→    ? adviceResult.batchInfo : null;
+  2234→  document.getElementById('det-batches').textContent        = bi ? `${bi.batches} 次` : (isEst ? '(估算)' : '--');
+  2235→  document.getElementById('det-powder-per-batch').textContent = bi ? `${bi.powderPerBatch.toFixed(2)} kg` : '--';
+  2236→  document.getElementById('det-water-per-batch').textContent  = bi ? `${bi.waterPerBatch.toFixed(1)} L` : '--';
+  2237→
+  2238→  /* 成本 */
+  2239→  const price = (powderPrice != null && powderPrice > 0) ? powderPrice : 0;
+  2240→  if (d && d.powderKg != null && price > 0) {
+  2241→    const cost = d.powderKg * price;
+  2242→    document.getElementById('det-cost').textContent = `¥${cost.toFixed(2)}`;
+  2243→  } else {
+  2244→    document.getElementById('det-cost').textContent = isEst ? '(估算)' : '--';
+  2245→  }
+  2246→
+  2247→  const area = isNaN(sprayArea) ? 1 : sprayArea;
+  2248→  document.getElementById('det-powder-label').textContent = `总粉剂用量 (${area} 亩)`;
+  2249→  document.getElementById('det-water-label').textContent  = `总用水量 (${area} 亩)`;
+  2250→}
+  2251→
+  2252→/** 最优卡片独立更新（保留原有卡片展示） */
+  2253→function updateOptimumCard(optimum, adviceResult, isSpectrumMode) {
+  2254→  const card = document.getElementById('optimum-card');
+  2255→  if (!optimum) { card.style.display = 'none'; return; }
+  2256→  card.style.display = 'block';
+  2257→  const displayR = (isSpectrumMode && optimum.S_total != null) ? optimum.S_total : optimum.R;
+  2258→  document.getElementById('opt-r').textContent      = (displayR * 100).toFixed(0) + '%';
+  2259→  document.getElementById('opt-y').textContent      = optimum.Y.toFixed(4);
+  2260→  document.getElementById('opt-tmax').textContent   = optimum.Tmax_cooled + ' °C';
+  2261→  document.getElementById('opt-deltaT').textContent = optimum.deltaT + ' °C';
+  2262→
+  2263→  const aEl = document.getElementById('dilution-advice');
+  2264→  if (adviceResult) {
+  2265→    aEl.textContent = adviceResult.value;
+  2266→    aEl.className   = 'dilution-advice' + (adviceResult.status !== 'ok' ? ' warning' : '');
+  2267→  } else {
+  2268→    aEl.textContent = '--'; aEl.className = 'dilution-advice';
+  2269→  }
+  2270→}
+  2271→
+  2272→const METRICS_META = [
+  2273→  { key: 'R',            label: '遮阳率',        higherIsBetter: null,  fmt: v => (v * 100).toFixed(0) + '%' },
+  2274→  { key: 'Y',            label: '综合效益',      higherIsBetter: true,  fmt: v => v.toFixed(4) },
+  2275→  { key: 'A_rel',        label: '光合保留率',    higherIsBetter: true,  fmt: v => (v * 100).toFixed(1) + '%' },
+  2276→  { key: 'L',            label: '产量损失率',    higherIsBetter: false, fmt: v => (v * 100).toFixed(1) + '%' },
+  2277→  { key: 'HHA',          label: '有害积热',      higherIsBetter: false, fmt: v => v.toFixed(1) + ' °C·h' },
+  2278→  { key: 'Tmax_cooled',  label: '棚内最高温',    higherIsBetter: false, fmt: v => v + ' °C' },
+  2279→  { key: 'deltaT',       label: '降温幅度',      higherIsBetter: true,  fmt: v => v + ' °C' }
+  2280→];
+  2281→
+  2282→/** 构建 Diff Grid 对比表 */
+  2283→function updateDiffTable(activeStrategies, baseStrategyId, onSetBase, onDeleteCustom, powderPrice) {
+  2284→  const container = document.getElementById('diff-table-container');
+  2285→  const detailCard = document.getElementById('detail-card');
+  2286→  if (!container || !detailCard) return;
+  2287→
+  2288→  if (!activeStrategies || activeStrategies.length === 0) {
+  2289→    detailCard.style.display = 'none'; return;
+  2290→  }
+  2291→  detailCard.style.display = 'block';
+  2292→
+  2293→  const base = activeStrategies.find(s => s.id === baseStrategyId) || activeStrategies[0];
+  2294→  const N = activeStrategies.length;
+  2295→
+  2296→  let html = `<div class="diff-grid" style="grid-template-columns: 140px repeat(${N}, 1fr);">`;
+  2297→
+  2298→  // Header row
+  2299→  html += '<div class="diff-header">指标</div>';
+  2300→  activeStrategies.forEach(sp => {
+  2301→    const isBase = sp.id === baseStrategyId;
+  2302→    html += `<div class="diff-header" style="color:${sp.color}">${sp.name}`;
+  2303→    if (sp.type === 'custom' && sp.id !== 'safe_save' && onDeleteCustom) {
+  2304→      html += ` <button data-action="delete" data-id="${sp.id}" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:1rem;">✕</button>`;
+  2305→    }
+  2306→    if (!isBase && onSetBase) {
+  2307→      html += ` <a data-action="set-base" data-id="${sp.id}" style="color:#1976d2;cursor:pointer;font-size:0.75rem;">设为基准</a>`;
+  2308→    }
+  2309→    html += '</div>';
+  2310→  });
+  2311→
+  2312→  // Data rows
+  2313→  METRICS_META.forEach(meta => {
+  2314→    const baseVal = base.data[meta.key];
+  2315→    html += `<div class="diff-label">${meta.label}</div>`;
+  2316→    activeStrategies.forEach(sp => {
+  2317→      const isBase = sp.id === baseStrategyId;
+  2318→      const val = sp.data[meta.key];
+  2319→      if (isBase) {
+  2320→        html += `<div class="diff-base">${meta.fmt(val)}</div>`;
+  2321→      } else {
+  2322→        html += `<div class="diff-cell">${meta.fmt(val)} ${renderDiffBadge(baseVal, val, meta.higherIsBetter)}</div>`;
+  2323→      }
+  2324→    });
+  2325→  });
+  2326→
+  2327→  // Advice rows (from sp.advice.detail)
+  2328→  html += '<div class="diff-label">兑水比</div>';
+  2329→  activeStrategies.forEach(sp => {
+  2330→    const isBase = sp.id === baseStrategyId;
+  2331→    const ratio = sp.advice?.detail?.ratio || '--';
+  2332→    if (isBase) html += `<div class="diff-base">${ratio}</div>`;
+  2333→    else html += `<div class="diff-cell">${ratio}</div>`;
+  2334→  });
+  2335→
+  2336→  html += '<div class="diff-label">总粉剂用量</div>';
+  2337→  activeStrategies.forEach(sp => {
+  2338→    const isBase = sp.id === baseStrategyId;
+  2339→    const kg = sp.advice?.detail?.powderKg;
+  2340→    const val = (kg != null) ? parseFloat(kg).toFixed(1) + ' kg' : '--';
+  2341→    if (isBase) html += `<div class="diff-base">${val}</div>`;
+  2342→    else {
+  2343→      const baseKg = base.advice?.detail?.powderKg;
+  2344→      const diff = (kg != null && baseKg != null) ? renderDiffBadge(parseFloat(baseKg), parseFloat(kg), false) : '';
+  2345→      html += `<div class="diff-cell">${val} ${diff}</div>`;
+  2346→    }
+  2347→  });
+  2348→
+  2349→  html += '<div class="diff-label">预计总成本</div>';
+  2350→  activeStrategies.forEach(sp => {
+  2351→    const isBase = sp.id === baseStrategyId;
+  2352→    const cost = (sp.advice?.detail?.powderKg != null)
+  2353→      ? '¥' + (parseFloat(sp.advice.detail.powderKg) * (Number.isFinite(powderPrice) ? powderPrice : 0)).toFixed(2)
+  2354→      : '--';
+  2355→    if (isBase) html += `<div class="diff-base">${cost}</div>`;
+  2356→    else html += `<div class="diff-cell">${cost}</div>`;
+  2357→  });
+  2358→
+  2359→  html += '</div>';
+  2360→  container.innerHTML = html;
+  2361→
+  2362→  // Event delegation for actions
+  2363→  container.querySelectorAll('[data-action="set-base"]').forEach(el => {
+  2364→    el.addEventListener('click', (e) => {
+  2365→      e.stopPropagation();
+  2366→      if (onSetBase) onSetBase(el.dataset.id);
+  2367→    });
+  2368→  });
+  2369→  container.querySelectorAll('[data-action="delete"]').forEach(el => {
+  2370→    el.addEventListener('click', (e) => {
+  2371→      e.stopPropagation();
+  2372→      if (onDeleteCustom) onDeleteCustom(el.dataset.id);
+  2373→    });
+  2374→  });
+  2375→}
+  2376→
+  2377→function renderDiffBadge(baseVal, curVal, higherIsBetter) {
+  2378→  if (higherIsBetter == null) return '';
+  2379→  const diff = curVal - baseVal;
+  2380→  if (Math.abs(diff) < 0.001) return '<span class="diff-same">--</span>';
+  2381→  const isGood = (diff > 0 && higherIsBetter) || (diff < 0 && !higherIsBetter);
+  2382→  const cls = isGood ? 'diff-good' : 'diff-bad';
+  2383→  const sign = diff > 0 ? '+' : '';
+  2384→  return `<span class="${cls}">${sign}${diff.toFixed(3)}</span>`;
+  2385→}
+  2386→
+  2387→/* ================================================================
+  2388→   警告渲染
+  2389→   ================================================================ */
+  2390→
+  2391→function updateWarnings(envWarnings, activeStrategies) {
+  2392→  const container = document.getElementById('warnings-container');
+  2393→  if (!container) return;
+  2394→  container.innerHTML = '';
+  2395→  const hasEnv = envWarnings && envWarnings.length > 0;
+  2396→  const hasStrat = activeStrategies && activeStrategies.length > 0;
+  2397→  if (!hasEnv && !hasStrat) { container.style.display = 'none'; return; }
+  2398→  container.style.display = 'block';
+  2399→
+
+[showing lines 1700-2399 of 3604; use offset=2400 with limit to continue reading]
