@@ -29,11 +29,12 @@ server.log
 # ---- 运行时临时文件 ----
 .server.pid
 
-# ---- Capacitor / Android 构建产物 ----
-# 保留 apk-build/ 脚本和配置，但忽略生成的 android 工程和 APK
-apk-build/android/
-apk-build/android
-*.apk
+# ---- Capacitor / Android 构建工具链 ----
+# 忽略整个 APK 构建环境（脚本、配置、Android 工程）
+# APK 产物通过 GitHub Release 单独发布，不进仓库
+apk-build/
+*.keystore
+*.jks
 
 # ---- 项目临时文件（开发环境专用，部署不需要）----
 upload/
