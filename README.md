@@ -17,40 +17,34 @@
 
 ## 🚀 本地使用
 
-### 快捷方式（推荐）
+### 命令行（Windows）
 
-双击桌面快捷方式：
-- `启动服务.desktop` — 启动本地服务器
-- `打开网页.desktop` — 浏览器打开页面
-- `停止服务.desktop` — 停止服务器
-
-### 命令行
-
-```bash
-bun install          # 安装依赖
-./serve.sh start     # 启动服务
-./serve.sh open      # 打开浏览器
-./serve.sh stop      # 停止服务
+```cmd
+bun install              :: 安装依赖
+serve.bat start          :: 启动服务
+serve.bat open           :: 打开浏览器
+serve.bat stop           :: 停止服务
+serve.bat status         :: 查看状态
 ```
 
 ## 📱 APK 打包
 
-```bash
-./apk-build/build-apk.sh
+```cmd
+apk-build\build-apk.bat
 ```
 
-产物：`apk-build/android/app/build/outputs/apk/debug/app-debug.apk`
+产物：`apk-build\android\app\build\outputs\apk\debug\app-debug.apk`
 
 APK 安装后离线可用，无需网络。
 
 ## 🌐 公网部署（Cloudflare Pages）
 
-```bash
-./deploy-cloudflare.sh
+```cmd
+deploy-cloudflare.bat
 ```
 
-或手动配置 Cloudflare Pages：
-- **Build command**: `DEPLOY_TARGET=cloudflare bun run build`
+或手动配置 Cloudflare Pages（推荐自动部署）：
+- **Build command**: `set DEPLOY_TARGET=cloudflare && bun run build`
 - **Output directory**: `out`
 
 ## 🏗️ 技术栈
