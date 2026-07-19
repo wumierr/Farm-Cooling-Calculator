@@ -16,6 +16,7 @@ import type { CalcParams, PresetKey, ResultPoint } from '@/lib/calculator'
 interface HistoryEntry {
   id: string
   timestamp: number
+  type: 'single' | 'multi-day'
   preset: PresetKey
   presetName: string
   params: CalcParams
@@ -27,9 +28,17 @@ interface HistoryEntry {
     deltaT: number
     netBenefit: number | null
   }
+  /** 多日场景特有字段 */
+  multiDay?: {
+    days: number
+    totalHHA: number
+    cumulativeLoss: number
+    overHeatDays: number
+    savedRevenue: number
+  }
 }
 
-const HISTORY_KEY = 'gcc:history:v1'
+const HISTORY_KEY = 'gcc:history:v2'
 const MAX_HISTORY = 12
 
 function loadHistory(): HistoryEntry[] {
@@ -47,6 +56,25 @@ function saveHistory(entries: HistoryEntry[]) {
   } catch (e) {
     console.warn('save history failed', e)
   }
+}
+
+/** 全局函数：供 multi-day-dialog 调用记录多日计算结果 */
+export function appendMultiDayHistory(entry: Omit<HistoryEntry, 'id' | 'timestamp'>) {
+  const full: HistoryEntry = {
+    ...entry,
+    id: `h_${Date.now()}`,
+    timestamp: Date.now(),
+  }
+  const existing = loadHistory()
+  // 去重：相同 type + summary + preset 不重复
+  const last = existing[0]
+  if (last && last.type === full.type && last.preset === full.preset
+      && JSON.stringify(last.summary) === JSON.stringify(full.summary)
+      && JSON.stringify(last.multiDay) === JSON.stringify(full.multiDay)) {
+    return
+  }
+  const next = [full, ...existing].slice(0, MAX_HISTORY)
+  saveHistory(next)
 }
 
 /** 历史记录管理 — 自动记录每次"有意义"的计算结果 */
@@ -70,6 +98,7 @@ export function HistoryDialog() {
     const entry: HistoryEntry = {
       id: `h_${Date.now()}`,
       timestamp: Date.now(),
+      type: 'single',
       preset: activePreset,
       presetName,
       params: JSON.parse(JSON.stringify(params)),
@@ -163,12 +192,19 @@ export function HistoryDialog() {
               {history.map((h) => (
                 <div
                   key={h.id}
-                  className="group rounded-md border p-3 hover:border-primary/40 hover:bg-muted/30 transition-colors cursor-pointer"
+                  className={`group rounded-md border p-3 hover:border-primary/40 hover:bg-muted/30 transition-colors cursor-pointer ${
+                    h.type === 'multi-day' ? 'border-sky-500/30 bg-sky-500/5' : ''
+                  }`}
                   onClick={() => handleRestore(h)}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className="text-[10px] py-0">{h.presetName}</Badge>
+                      {h.type === 'multi-day' && (
+                        <Badge variant="secondary" className="text-[10px] py-0 bg-sky-500/20 text-sky-700 dark:text-sky-300">
+                          多日 {h.multiDay?.days}天
+                        </Badge>
+                      )}
                       <span className="text-[10px] text-muted-foreground">{fmtTime(h.timestamp)}</span>
                     </div>
                     <Button
@@ -178,26 +214,49 @@ export function HistoryDialog() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-4 gap-2 text-xs">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground">R</div>
-                      <div className="font-bold tabular-nums text-primary">{(h.summary.R * 100).toFixed(0)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground">Y</div>
-                      <div className="font-semibold tabular-nums">{h.summary.Y.toFixed(3)}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground">棚温</div>
-                      <div className="font-semibold tabular-nums">{h.summary.Tmax_cooled}°C</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground">净收益</div>
-                      <div className={`font-semibold tabular-nums ${(h.summary.netBenefit ?? 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                        {h.summary.netBenefit != null ? `¥${h.summary.netBenefit.toFixed(0)}` : '--'}
+                  {h.type === 'multi-day' && h.multiDay ? (
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">R</div>
+                        <div className="font-bold tabular-nums text-primary">{(h.summary.R * 100).toFixed(0)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">累积HHA</div>
+                        <div className="font-semibold tabular-nums">{h.multiDay.totalHHA.toFixed(0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">超温</div>
+                        <div className={`font-semibold tabular-nums ${h.multiDay.overHeatDays > 0 ? 'text-destructive' : 'text-primary'}`}>
+                          {h.multiDay.overHeatDays}/{h.multiDay.days}天
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">挽回收益</div>
+                        <div className="font-semibold tabular-nums text-primary">¥{h.multiDay.savedRevenue.toFixed(0)}</div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">R</div>
+                        <div className="font-bold tabular-nums text-primary">{(h.summary.R * 100).toFixed(0)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">Y</div>
+                        <div className="font-semibold tabular-nums">{h.summary.Y.toFixed(3)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">棚温</div>
+                        <div className="font-semibold tabular-nums">{h.summary.Tmax_cooled}°C</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">净收益</div>
+                        <div className={`font-semibold tabular-nums ${(h.summary.netBenefit ?? 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                          {h.summary.netBenefit != null ? `¥${h.summary.netBenefit.toFixed(0)}` : '--'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
                     <span>Tmax {h.params.Tmax}°C</span>
                     <span>·</span>

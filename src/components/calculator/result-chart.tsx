@@ -3,7 +3,7 @@
 import * as React from 'react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceArea, ReferenceDot, Legend,
+  Tooltip, ReferenceArea, ReferenceDot, ReferenceLine, Legend,
 } from 'recharts'
 import { MousePointerClick, Trash2 } from 'lucide-react'
 import { useCalculatorStore } from './store'
@@ -227,6 +227,23 @@ export function ResultChart() {
                   />
                 )
               })}
+              {/* 最优点垂直参考线 */}
+              {output?.optimum && (
+                <ReferenceLine
+                  yAxisId="left"
+                  x={`${(output.optimum.R * 100).toFixed(0)}%`}
+                  stroke="var(--primary)"
+                  strokeDasharray="2 4"
+                  strokeOpacity={0.4}
+                  label={{
+                    value: `最优 ${(output.optimum.R * 100).toFixed(0)}%`,
+                    position: 'top',
+                    fill: 'var(--primary)',
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>

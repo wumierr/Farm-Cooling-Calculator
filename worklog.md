@@ -467,3 +467,87 @@ src/app/
 5. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.5 迭代记录（2026-07-19 cron 第 5 轮）
+
+### 项目当前状态：✅ 稳定可用，成本效益图 + 多日历史 + ±步进 + 最优参考线
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：±步进按钮、成本效益图、多日历史记录均验证
+
+### 本轮完成的改进
+
+#### 1. P2 新功能：输入参数 ±步进按钮
+- **NumField 组件增强**：每个数字输入框左右两侧添加 −/ ChevronUp/ChevronDown 按钮
+  - 左侧 − 按钮：步进减少（带 min 边界禁用）
+  - 右侧上下箭头：步进增加/减少（带 max/min 边界禁用）
+  - 步进值跟随 step 参数（如 Tmax step=0.1，Imax step=10）
+  - clamp 函数确保不超出 min/max
+- 输入框宽度从 w-24 调整为 w-20（为按钮腾出空间）
+- **验证**：Tmax 45 → 点击增加 → 45.1（step=0.1 正确）
+
+#### 2. P2 样式：图表最优点垂直参考线
+- **result-chart.tsx** 新增 `ReferenceLine`：
+  - 在最优点 R 处画垂直虚线（primary 色，dasharray "2 4"，opacity 0.4）
+  - 顶部标签"最优 XX%"（primary 色，fontSize 10，fontWeight 600）
+- 替代原 71 个数据点 dots 方案（避免视觉拥挤），用单条参考线标识最优点位置
+
+#### 3. P1 新功能：多日预报历史记录整合
+- **history-dialog.tsx** 扩展：
+  - `HistoryEntry` 新增 `type: 'single' | 'multi-day'` + `multiDay?` 字段
+  - `appendMultiDayHistory` 全局函数：供 multi-day-dialog 调用记录
+  - HISTORY_KEY 升级到 v2（兼容旧数据自动忽略）
+  - 多日记录卡片：sky-blue 边框 + "多日 N天" 徽章
+  - 多日卡片显示 4 指标：R / 累积HHA / 超温天数 / 挽回收益
+- **multi-day-dialog.tsx** 新增 useEffect：
+  - open + 有结果时自动记录到历史（去重）
+  - 记录 selectedR、days、totalHHA、overHeatDays、savedRevenue
+- **验证**：多日 R=61% → 历史显示"多日 7天，累积HHA 0，超温 0/7，挽回 ¥10200"
+
+#### 4. P2 新功能：成本效益对比图
+- **cost-benefit-chart.tsx** 新组件（ComposedChart 组合图）：
+  - X 轴：遮阳率 R，Y 轴：元
+  - 挽回收益（面积图，chart-1 色，15% 透明）
+  - 粉剂成本（虚线，destructive 色）
+  - 净收益（主线，chart-2 色，2.5px，activeDot r=6）
+  - 零线参考线（muted-foreground 虚线）
+  - 最优点垂直参考线（primary 虚线）
+  - tooltip 显示收益/成本/净收益
+- **底部摘要**：3 指标卡（最优 R 净收益 / 最大净收益 / 最大收益 R）
+- **引擎**：`calcCostBenefitCurve` 在 advice.ts 中新增，遍历所有 R 计算净收益曲线
+- **验证**：图表渲染，显示不同 R 的净收益变化
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| ±步进按钮 | ✅ Tmax 45→45.1（step=0.1），13 个输入框均有按钮 |
+| 最优参考线 | ✅ 垂直虚线 + "最优 29%" 标签 |
+| 多日历史记录 | ✅ 多日 R=61% 记录显示"多日 7天，¥10200" |
+| 多日历史去重 | ✅ 相同结果不重复记录 |
+| 成本效益图 | ✅ ComposedChart 渲染，面积+线条组合 |
+| 成本效益摘要 | ✅ 3 指标卡显示最优/最大净收益 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/lib/calculator/
+└─ advice.ts                  # ★v2.5 calcCostBenefitCurve + CostBenefitPoint
+src/components/calculator/
+├─ input-panel.tsx            # ★v2.5 NumField ±步进按钮
+├─ result-chart.tsx           # ★v2.5 最优点 ReferenceLine
+├─ history-dialog.tsx         # ★v2.5 type 字段 + appendMultiDayHistory + 多日卡片
+├─ multi-day-dialog.tsx       # ★v2.5 自动记录到历史
+└─ cost-benefit-chart.tsx     # ★v2.5 新组件：成本效益对比图
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线实际测试（断网验证缓存命中）
+2. **P2**：处方单服务端 PDF 生成（需安装 pdf-lib/jspdf）
+3. **P2**：成本效益图 hover 高亮 + 十字线（当前仅有 activeDot）
+4. **P2**：图表数据点可见 dots（低饱和小圆点，不遮挡曲线）
+5. **P2**：历史记录搜索/筛选（按品种、日期、类型过滤）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

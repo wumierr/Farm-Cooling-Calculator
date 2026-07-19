@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Trash2, RotateCcw, FlaskConical, Sun, Droplets, Wrench } from 'lucide-react'
+import { Plus, Trash2, RotateCcw, FlaskConical, Sun, Droplets, Wrench, Minus, ChevronUp, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,9 +16,9 @@ import { PRESETS, WEATHER_SCENARIOS } from '@/lib/calculator'
 import type { PresetKey, ProductRow, KMappingRow, CalcParams } from '@/lib/calculator'
 import { cn } from '@/lib/utils'
 
-/* ── 通用数字输入行 ── */
+/* ── 通用数字输入行（带 ± 步进按钮） ── */
 function NumField({
-  id, label, value, onChange, unit, step, min, max, invalid, hint,
+  id, label, value, onChange, unit, step = 1, min, max, invalid, hint,
 }: {
   id: string
   label: React.ReactNode
@@ -31,15 +31,30 @@ function NumField({
   invalid?: boolean
   hint?: string
 }) {
+  const clamp = (v: number) => {
+    if (min != null && v < min) return min
+    if (max != null && v > max) return max
+    return v
+  }
+  const stepUp = () => onChange(clamp(+(value + step).toFixed(4)))
+  const stepDown = () => onChange(clamp(+(value - step).toFixed(4)))
+
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-2 items-center py-1">
+    <div className="grid grid-cols-[1fr_auto] gap-2 items-center py-1 group">
       <div className="min-w-0">
         <Label htmlFor={id} className="text-xs text-muted-foreground truncate block">
           {label}
         </Label>
         {hint && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{hint}</p>}
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        <Button
+          variant="ghost" size="icon" className="h-7 w-6 text-muted-foreground hover:text-primary shrink-0"
+          onClick={stepDown} disabled={min != null && value <= min}
+          aria-label="减少"
+        >
+          <Minus className="h-3 w-3" />
+        </Button>
         <Input
           id={id}
           type="number"
@@ -52,11 +67,27 @@ function NumField({
             onChange(Number.isFinite(v) ? v : NaN)
           }}
           className={cn(
-            'w-24 h-8 text-sm text-right tabular-nums',
+            'w-20 h-8 text-sm text-right tabular-nums px-1',
             invalid && 'border-destructive focus-visible:ring-destructive',
           )}
         />
-        {unit && <span className="text-[11px] text-muted-foreground w-12 whitespace-nowrap">{unit}</span>}
+        <div className="flex flex-col shrink-0">
+          <Button
+            variant="ghost" size="icon" className="h-3.5 w-5 text-muted-foreground hover:text-primary p-0"
+            onClick={stepUp} disabled={max != null && value >= max}
+            aria-label="增加"
+          >
+            <ChevronUp className="h-2.5 w-2.5" />
+          </Button>
+          <Button
+            variant="ghost" size="icon" className="h-3.5 w-5 text-muted-foreground hover:text-primary p-0"
+            onClick={stepDown} disabled={min != null && value <= min}
+            aria-label="减少"
+          >
+            <ChevronDown className="h-2.5 w-2.5" />
+          </Button>
+        </div>
+        {unit && <span className="text-[11px] text-muted-foreground w-12 whitespace-nowrap ml-1">{unit}</span>}
       </div>
     </div>
   )

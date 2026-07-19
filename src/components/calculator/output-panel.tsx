@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { useCalculatorStore } from './store'
 import { ResultChart } from './result-chart'
+import { CostBenefitChart } from './cost-benefit-chart'
 import { STRATEGY_DEFS } from '@/lib/calculator'
 import type { Warning } from '@/lib/calculator'
 import { cn } from '@/lib/utils'
@@ -454,6 +455,7 @@ export function OutputPanel() {
           <OptimumCard />
           <Warnings warnings={strategyWarnings} />
           <StrategyComparison />
+          <CostBenefitChart />
           <DetailTable />
         </>
       )}

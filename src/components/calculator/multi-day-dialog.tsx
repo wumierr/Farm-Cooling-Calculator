@@ -15,17 +15,21 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useCalculatorStore } from './store'
+import { appendMultiDayHistory } from './history-dialog'
 import {
   calcMultiDay, findOptimalMultiDayR, generateDefaultWeek,
 } from '@/lib/calculator/multi-day'
 import type { DayWeather } from '@/lib/calculator/multi-day'
+import { PRESETS } from '@/lib/calculator'
+import type { PresetKey } from '@/lib/calculator'
 import { cn } from '@/lib/utils'
 
 export function MultiDayDialog() {
-  const { params } = useCalculatorStore()
+  const { params, activePreset } = useCalculatorStore()
   const [open, setOpen] = React.useState(false)
   const [weather, setWeather] = React.useState<DayWeather[]>([])
   const [selectedR, setSelectedR] = React.useState<number>(0.3)
+  const [lastRecordKey, setLastRecordKey] = React.useState('')
 
   // 初始化默认 7 天天气（基于当前参数）
   React.useEffect(() => {
@@ -65,6 +69,38 @@ export function MultiDayDialog() {
     if (weather.length === 0) return null
     return findOptimalMultiDayR(weather, params)
   }, [weather, params])
+
+  // 记录多日计算到历史（仅 open + 有结果时，去重）
+  React.useEffect(() => {
+    if (!open || !result || result.error) return
+    const key = `${selectedR}_${weather.length}_${result.totalHHA}_${result.overHeatDays}`
+    if (key === lastRecordKey) return
+    setLastRecordKey(key)
+    const presetName = activePreset !== 'custom'
+      ? PRESETS[activePreset as Exclude<PresetKey, 'custom'>].name
+      : '自定义'
+    appendMultiDayHistory({
+      type: 'multi-day',
+      preset: activePreset,
+      presetName,
+      params: JSON.parse(JSON.stringify(params)),
+      optimum: null,
+      summary: {
+        R: selectedR,
+        Y: result.avgY,
+        Tmax_cooled: result.days[0]?.Tmax_cooled ?? 0,
+        deltaT: result.days[0]?.deltaT ?? 0,
+        netBenefit: result.benefit.savedRevenue - (result.days[0]?.deltaT ?? 0) * 0, // 多日无单次成本
+      },
+      multiDay: {
+        days: result.days.length,
+        totalHHA: result.totalHHA,
+        cumulativeLoss: result.cumulativeLoss,
+        overHeatDays: result.overHeatDays,
+        savedRevenue: result.benefit.savedRevenue,
+      },
+    })
+  }, [open, result, selectedR, weather.length, activePreset, params, lastRecordKey])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -393,3 +393,77 @@ export function calcCostBenefit(
     afterY: point.Y,
   };
 }
+
+/** 成本效益曲线点 — 用于不同 R 下的净收益对比图 */
+export interface CostBenefitPoint {
+  R: number
+  Rlabel: string
+  netBenefit: number
+  savedRevenue: number
+  powderCost: number
+  /** 是否盈利（净收益 > 0） */
+  profitable: boolean
+}
+
+/** 计算所有 R 的净收益曲线（用于成本效益对比图）
+ *  简化版：不依赖 adviceDetail，直接用 productTable/kMapping 估算粉剂量 */
+export function calcCostBenefitCurve(
+  results: ResultPoint[], params: CalcParams, baseline?: ResultPoint | null,
+): CostBenefitPoint[] {
+  const totalYield = (params.expectedYield || 0) * (params.sprayArea || 1);
+  const baselineLoss = baseline ? baseline.L : 0.5;
+  const muToM2 = (params.sprayArea || 1) * 666.67;
+
+  return results.map((r) => {
+    const savedYieldKg = totalYield * (baselineLoss - r.L);
+    const savedRevenue = savedYieldKg * (params.grapePrice || 0);
+
+    // 估算粉剂量（简化：用 R 查表或 k 模式）
+    let powderKg = 0;
+    if (params.calcMode === 'table' && params.productTable.length >= 2) {
+      const sorted = [...params.productTable].sort((a, b) => a.reflectancePercent - b.reflectancePercent);
+      const rMin = sorted[0].reflectancePercent / 100;
+      const rMax = sorted[sorted.length - 1].reflectancePercent / 100;
+      if (r.R >= rMin && r.R <= rMax) {
+        let lo = sorted[0], hi = sorted[sorted.length - 1];
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const rl = sorted[i].reflectancePercent / 100;
+          const rh = sorted[i + 1].reflectancePercent / 100;
+          if (r.R >= rl && r.R <= rh) { lo = sorted[i]; hi = sorted[i + 1]; break; }
+        }
+        const rl = lo.reflectancePercent / 100, rh = hi.reflectancePercent / 100;
+        const t = Math.abs(rh - rl) < 1e-9 ? 0 : (r.R - rl) / (rh - rl);
+        const coverage = lo.coverage + t * (hi.coverage - lo.coverage);
+        powderKg = muToM2 / Math.max(1, coverage);
+      }
+    } else if (params.calcMode === 'k' && params.kMapping.length >= 2) {
+      const sorted = [...params.kMapping].sort((a, b) => a.r - b.r);
+      if (r.R >= sorted[0].r && r.R <= sorted[sorted.length - 1].r) {
+        let lo = sorted[0], hi = sorted[sorted.length - 1];
+        for (let i = 0; i < sorted.length - 1; i++) {
+          if (r.R >= sorted[i].r && r.R <= sorted[i + 1].r) { lo = sorted[i]; hi = sorted[i + 1]; break; }
+        }
+        const ratio = Math.abs(hi.r - lo.r) < 1e-9 ? lo.ratio : lo.ratio + (r.R - lo.r) / (hi.r - lo.r) * (hi.ratio - lo.ratio);
+        const ri = Math.max(1, Math.min(20, ratio));
+        const covMap = [{ r: 1, c: 100 }, { r: 3, c: 250 }, { r: 5, c: 400 }, { r: 8, c: 500 }, { r: 12, c: 750 }, { r: 15, c: 900 }, { r: 20, c: 1200 }];
+        let clo = covMap[0], chi = covMap[covMap.length - 1];
+        for (let i = 0; i < covMap.length - 1; i++) {
+          if (ri >= covMap[i].r && ri <= covMap[i + 1].r) { clo = covMap[i]; chi = covMap[i + 1]; break; }
+        }
+        const coverage = clo.c + (ri - clo.r) / (chi.r - clo.r) * (chi.c - clo.c);
+        powderKg = muToM2 / Math.max(1, coverage);
+      }
+    }
+
+    const powderCost = powderKg * (params.powderPrice || 0);
+    const netBenefit = savedRevenue - powderCost;
+    return {
+      R: r.R,
+      Rlabel: `${(r.R * 100).toFixed(0)}%`,
+      netBenefit,
+      savedRevenue,
+      powderCost,
+      profitable: netBenefit > 0,
+    };
+  });
+}
