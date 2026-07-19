@@ -16,6 +16,8 @@ interface CalculatorState {
   params: CalcParams
   activePreset: PresetKey
   strategyFlags: { max_y: boolean; absolute_temp: boolean }
+  /** 用户自定义策略点（点击图表添加的 R 值） */
+  customStrategies: number[]
 
   // 计算结果（由 recalculate 派生）
   output: OptimizeOutput | null
@@ -32,6 +34,9 @@ interface CalculatorState {
   setParams: (partial: Partial<CalcParams>) => void
   applyPreset: (preset: PresetKey) => void
   toggleStrategy: (key: 'max_y' | 'absolute_temp') => void
+  addCustomStrategy: (R: number) => void
+  removeCustomStrategy: (R: number) => void
+  clearCustomStrategies: () => void
   reset: () => void
   recalculate: () => void
   loadParams: (params: CalcParams, preset?: PresetKey) => void
@@ -43,6 +48,7 @@ export const useCalculatorStore = create<CalculatorState>()(
       params: createDefaultParams(),
       activePreset: 'crimson',
       strategyFlags: { max_y: true, absolute_temp: true },
+      customStrategies: [],
 
       output: null,
       advice: null,
@@ -83,12 +89,35 @@ export const useCalculatorStore = create<CalculatorState>()(
         get().recalculate()
       },
 
+      addCustomStrategy: (R) => {
+        const rounded = Math.round(R * 100) / 100
+        set((s) => {
+          if (s.customStrategies.includes(rounded)) return s
+          return { customStrategies: [...s.customStrategies, rounded] }
+        })
+        get().recalculate()
+      },
+
+      removeCustomStrategy: (R) => {
+        const rounded = Math.round(R * 100) / 100
+        set((s) => ({
+          customStrategies: s.customStrategies.filter((r) => Math.abs(r - rounded) > 0.005),
+        }))
+        get().recalculate()
+      },
+
+      clearCustomStrategies: () => {
+        set({ customStrategies: [] })
+        get().recalculate()
+      },
+
       reset: () => {
         const fresh = createDefaultParams()
         set({
           params: fresh,
           activePreset: 'crimson',
           strategyFlags: { max_y: true, absolute_temp: true },
+          customStrategies: [],
         })
         get().recalculate()
       },
@@ -122,6 +151,24 @@ export const useCalculatorStore = create<CalculatorState>()(
 
         const { points, warnings } = extractStrategies(output, params, strategyFlags)
         const envWarnings = evaluateEnvWarnings(params)
+
+        // 追加用户自定义策略点（点击图表添加的 R 值）
+        const { customStrategies } = get()
+        const customPoints: StrategyPoint[] = []
+        for (const R of customStrategies) {
+          const found = output.results.find((r) => Math.abs(r.R - R) < 0.005)
+          if (found) {
+            customPoints.push({
+              id: `custom_${R}`,
+              name: `自定义 ${(R * 100).toFixed(0)}%`,
+              color: '#a855f7',
+              type: 'custom',
+              isBase: false,
+              data: found,
+            })
+          }
+        }
+        const allStrategies = [...points, ...customPoints]
 
         // 配比建议（基于 safe_save 基准策略，或 optimum）
         const baseStrategy = points.find((p) => p.type === 'safe_save')
@@ -160,7 +207,7 @@ export const useCalculatorStore = create<CalculatorState>()(
         set({
           validation,
           output,
-          strategies: points,
+          strategies: allStrategies,
           strategyWarnings: warnings,
           envWarnings,
           advice,
@@ -174,6 +221,7 @@ export const useCalculatorStore = create<CalculatorState>()(
         params: s.params,
         activePreset: s.activePreset,
         strategyFlags: s.strategyFlags,
+        customStrategies: s.customStrategies,
       }),
       onRehydrateStorage: () => (state) => {
         // 重新水合后立即计算一次

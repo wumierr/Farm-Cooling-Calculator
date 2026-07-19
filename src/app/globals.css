@@ -132,6 +132,26 @@
   .dark textarea {
     color: oklch(0.97 0.01 150);
   }
+  /* 卡片悬浮提升 — shadcn Card 增强 */
+  [data-slot="card"] {
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  }
+  [data-slot="card"]:hover {
+    box-shadow: 0 4px 20px -4px color-mix(in oklch, var(--primary) 15%, transparent);
+  }
+  /* 按钮 focus 可见性增强 */
+  [data-slot="button"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* 表格行 hover 增强 */
+  tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  /* range 滑块美化 */
+  input[type="range"] {
+    accent-color: var(--primary);
+  }
 }
 
 /* 自定义滚动条 — 列表区与图表区 */

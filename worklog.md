@@ -207,3 +207,83 @@ src/components/calculator/
 5. **P2**：处方单 PDF 服务端生成（当前为客户端打印，服务端可更精美）
 6. **P3**：多语言（next-intl 英文版）
 7. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v2.2 迭代记录（2026-07-19 cron 第 2 轮）
+
+### 项目当前状态：✅ 稳定可用，功能与交互持续丰富
+- 开发服务器运行正常，ESLint 通过，无控制台错误
+- agent-browser QA 全部通过：品种预设、光谱预设库、图表点击交互均验证
+
+### 本轮完成的改进
+
+#### 1. P1 新功能：光谱预设库（6 种典型材料一键加载）
+- **新增** `CONFIG.SPECTRAL_PRESETS`：6 种常见降温剂/遮阳材料典型反射曲线
+  - 白色降温剂（PAR 低反射 + IR 高反射，默认）
+  - 黄色降温剂（蓝光段反射略高）
+  - 红色降温剂（蓝绿光反射高，红光透过）
+  - 黑色遮阳网（全光谱均匀吸收）
+  - 银灰遮阳网（全光谱高反射）
+  - 散射膜（PAR 段散射透过）
+- **UI**：光谱编辑器顶部新增预设按钮栏（带颜色圆点 + 名称 + hover 提示）
+- **验证**：白涂剂 S_total=49.5% → 黑色遮阳网 92.9% → 银灰遮阳网 89.4%
+
+#### 2. P2 新功能：图表点击交互（添加/删除自定义策略点）
+- **store 新增** `customStrategies: number[]` + 3 个操作：
+  - `addCustomStrategy(R)` / `removeCustomStrategy(R)` / `clearCustomStrategies()`
+- **图表 onClick**：点击曲线数据点 → 添加紫色自定义策略点；再次点击 → 移除
+- **图例增强**：自定义点带 🗑 图标，点击可移除；有自定义点时显示"清除自定义"按钮
+- **持久化**：customStrategies 存入 localStorage
+- **验证**：点击 R=55% 添加 → 策略对比表显示"自定义 55% Y=0.9786" → 再点击移除
+
+#### 3. P2 新功能：品种预设扩展（5 → 10 种）
+- **新增 5 个品种**：藤稔、户太八号、妮娜皇后、世纪无核、秋黑
+- 每个品种含 LSP/LCP/T0 + 描述（耐热性/光饱和点/栽培特性）
+- **UI**：预设区改为可滚动（max-h-28 + scrollbar-thin），显示"品种预设（10 种）"
+- 描述文字添加 `animate-slide-in` 入场动画
+
+#### 4. 样式细节增强
+- **进度条指标行**（`DetailRowWithBar`）：A_rel（绿色）和 L（红色）显示横向进度条 + 数值
+  - 500ms 过渡动画，宽度随值变化平滑过渡
+- **卡片悬浮效果**：所有 Card hover 时显示 primary 色 15% 透明阴影
+- **按钮 focus 增强**：2px ring outline
+- **表格行 hover**：背景色 150ms 过渡
+- **range 滑块**：accent-color 跟随主题
+- **图表标题**：新增"点击曲线添加对比点"提示 + MousePointerClick 图标
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| 品种预设 10 种 | ✅ 藤稔/户太八号/妮娜皇后/世纪无核/秋黑 均可点击应用 |
+| 光谱预设库 6 种 | ✅ 白/黄/红涂剂 + 黑/银遮阳网 + 散射膜，S_total 正确切换 |
+| 图表点击添加 | ✅ 点击 R=55% 添加自定义点，策略表显示 |
+| 图表点击移除 | ✅ 再次点击移除，图例 🗑 可点击移除 |
+| 清除自定义按钮 | ✅ 有自定义点时显示"清除自定义" |
+| 进度条指标 | ✅ A_rel 绿色条 / L 红色条，随值动画 |
+| 卡片悬浮 | ✅ hover 阴影效果 |
+| 暗色模式 | ✅ 无错误 |
+| 控制台错误 | ✅ 无 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+src/lib/calculator/
+├─ types.ts                   # PresetKey 新增 5 个品种
+├─ presets.ts                 # SPECTRAL_PRESETS 6 种 + PRESETS 10 种品种
+└─ (无新文件)
+src/components/calculator/
+├─ store.ts                   # customStrategies + add/remove/clear 操作
+├─ spectrum-editor.tsx        # 顶部预设按钮栏
+├─ result-chart.tsx           # onClick 添加/移除 + 图例增强
+└─ output-panel.tsx           # DetailRowWithBar 进度条行
+```
+
+### 下一阶段建议优先事项
+1. **P1**：PWA 离线支持（service worker + manifest，田间可用性）
+2. **P1**：自定义策略点的配比建议（当前仅预设策略有 advice，自定义点可扩展）
+3. **P2**：处方单 PDF 服务端生成（更精美排版）
+4. **P2**：图表数据点 hover 高亮 + 十字线
+5. **P2**：光谱预设自定义保存（用户可保存自己的光谱曲线）
+6. **P3**：多语言（next-intl 英文版）
+7. **P3**：跨设备配方同步（Prisma + API）

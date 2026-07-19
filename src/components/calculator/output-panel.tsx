@@ -163,6 +163,34 @@ function DetailRow({ icon, label, value, sub, divider }: {
   )
 }
 
+/* ── 带进度条的指标行（A_rel / L 等百分比指标） ── */
+function DetailRowWithBar({ icon, label, value, ratio, color, divider }: {
+  icon: React.ReactNode; label: string; value: string
+  ratio: number // 0-1
+  color: string // tailwind color class or css var
+  divider?: boolean
+}) {
+  const pct = Math.max(0, Math.min(1, ratio)) * 100
+  return (
+    <TableRow className={divider ? 'text-sm border-t border-border/60' : 'text-sm'}>
+      <TableCell className="py-2 text-muted-foreground">
+        <span className="inline-flex items-center gap-2">{icon}{label}</span>
+      </TableCell>
+      <TableCell className="py-2">
+        <div className="flex items-center gap-2 justify-end">
+          <div className="flex-1 max-w-[100px] h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${pct}%`, backgroundColor: color }}
+            />
+          </div>
+          <span className="font-medium tabular-nums w-16 text-right">{value}</span>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
 /* ── 详细指标表 ── */
 function DetailTable() {
   const { output, advice, params, costBenefit } = useCalculatorStore()
@@ -179,12 +207,14 @@ function DetailTable() {
       <CardContent className="pt-0">
         <Table>
           <TableBody>
-            <DetailRow icon={<Leaf className="h-3.5 w-3.5" />} label="光合保留率 A_rel"
-              value={`${(opt.A_rel * 100).toFixed(2)}%`} />
+            <DetailRowWithBar icon={<Leaf className="h-3.5 w-3.5" />} label="光合保留率 A_rel"
+              value={`${(opt.A_rel * 100).toFixed(1)}%`} ratio={opt.A_rel}
+              color="var(--chart-1)" />
             <DetailRow icon={<ThermometerSun className="h-3.5 w-3.5" />} label="有害积热 HHA"
               value={`${opt.HHA.toFixed(1)} °C²·h`} />
-            <DetailRow icon={<TrendingDown className="h-3.5 w-3.5" />} label="产量损失率 L"
-              value={`${(opt.L * 100).toFixed(1)}%`} />
+            <DetailRowWithBar icon={<TrendingDown className="h-3.5 w-3.5" />} label="产量损失率 L"
+              value={`${(opt.L * 100).toFixed(1)}%`} ratio={opt.L}
+              color="var(--destructive)" />
             <DetailRow divider icon={<Droplets className="h-3.5 w-3.5" />} label="建议兑水比"
               value={d?.ratio ?? '--'} />
             <DetailRow icon={<SprayCan className="h-3.5 w-3.5" />} label="覆盖能力"

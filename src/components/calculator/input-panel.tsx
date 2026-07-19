@@ -71,13 +71,20 @@ function PresetSelector() {
     { key: 'shine-muscat', name: '阳光玫瑰' },
     { key: 'kyoho', name: '巨峰' },
     { key: 'red-globe', name: '红地球' },
+    { key: 'fujiminori', name: '藤稔' },
+    { key: 'hutai-8', name: '户太八号' },
+    { key: 'nina-queen', name: '妮娜皇后' },
+    { key: 'centennial-seedless', name: '世纪无核' },
+    { key: 'autumn-royal', name: '秋黑' },
     { key: 'custom', name: '自定义' },
   ]
   return (
     <Card>
       <CardContent className="pt-4">
-        <div className="text-xs font-semibold text-muted-foreground mb-2">品种预设</div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-muted-foreground">品种预设（{presets.length - 1} 种）</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto scrollbar-thin pr-1">
           {presets.map((p) => (
             <Button
               key={p.key}
@@ -91,7 +98,7 @@ function PresetSelector() {
           ))}
         </div>
         {activePreset !== 'custom' && (
-          <p className="text-[11px] text-muted-foreground mt-2">
+          <p className="text-[11px] text-muted-foreground mt-2 animate-slide-in">
             {PRESETS[activePreset as Exclude<PresetKey, 'custom'>].desc}
           </p>
         )}

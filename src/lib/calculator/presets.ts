@@ -81,6 +81,80 @@ export const CONFIG = {
     { x: 1100, y: 0.60 },
   ] as SpectrumPoint[],
 
+  /** 光谱预设库 — 常见降温剂/遮阳材料典型反射曲线
+   *  数据来源：厂商技术资料整理 + 农业光环境研究文献典型值 */
+  SPECTRAL_PRESETS: [
+    {
+      key: 'white-coating',
+      name: '白色降温剂',
+      desc: 'PAR 低反射、IR 高反射，光合保留好',
+      color: '#f8fafc',
+      points: [
+        { x: 380, y: 0.15 }, { x: 480, y: 0.18 }, { x: 550, y: 0.22 },
+        { x: 700, y: 0.20 }, { x: 780, y: 0.45 }, { x: 950, y: 0.65 },
+        { x: 1100, y: 0.60 },
+      ],
+    },
+    {
+      key: 'yellow-coating',
+      name: '黄色降温剂',
+      desc: '蓝光段反射略高，红光保留',
+      color: '#fde047',
+      points: [
+        { x: 380, y: 0.25 }, { x: 450, y: 0.30 }, { x: 550, y: 0.20 },
+        { x: 660, y: 0.15 }, { x: 780, y: 0.40 }, { x: 950, y: 0.60 },
+        { x: 1100, y: 0.55 },
+      ],
+    },
+    {
+      key: 'red-coating',
+      name: '红色降温剂',
+      desc: '蓝绿光反射高，红光透过（适合红光敏感品种）',
+      color: '#f87171',
+      points: [
+        { x: 380, y: 0.35 }, { x: 480, y: 0.40 }, { x: 550, y: 0.35 },
+        { x: 620, y: 0.20 }, { x: 680, y: 0.12 }, { x: 780, y: 0.42 },
+        { x: 950, y: 0.58 }, { x: 1100, y: 0.52 },
+      ],
+    },
+    {
+      key: 'shade-net-black',
+      name: '黑色遮阳网',
+      desc: '全光谱均匀吸收，光合衰减明显',
+      color: '#475569',
+      points: [
+        { x: 380, y: 0.45 }, { x: 480, y: 0.45 }, { x: 550, y: 0.45 },
+        { x: 660, y: 0.45 }, { x: 780, y: 0.48 }, { x: 950, y: 0.50 },
+        { x: 1100, y: 0.48 },
+      ],
+    },
+    {
+      key: 'shade-net-silver',
+      name: '银灰遮阳网',
+      desc: '全光谱高反射，降温强但光合损失大',
+      color: '#cbd5e1',
+      points: [
+        { x: 380, y: 0.55 }, { x: 480, y: 0.58 }, { x: 550, y: 0.60 },
+        { x: 660, y: 0.58 }, { x: 780, y: 0.62 }, { x: 950, y: 0.68 },
+        { x: 1100, y: 0.65 },
+      ],
+    },
+    {
+      key: 'diffuse-film',
+      name: '散射膜',
+      desc: 'PAR 段散射透过，IR 反射适中',
+      color: '#a5f3fc',
+      points: [
+        { x: 380, y: 0.10 }, { x: 480, y: 0.12 }, { x: 550, y: 0.14 },
+        { x: 660, y: 0.13 }, { x: 780, y: 0.30 }, { x: 950, y: 0.50 },
+        { x: 1100, y: 0.48 },
+      ],
+    },
+  ] as ReadonlyArray<{
+    key: string; name: string; desc: string; color: string;
+    points: SpectrumPoint[];
+  }>,
+
   /** 光谱模式降温系数：dT ≈ SPECTRAL_K × S_total */
   SPECTRAL_K: 15.0,
 
@@ -97,11 +171,16 @@ export const CONFIG = {
 export const PRESETS: Record<Exclude<PresetKey, 'custom'>, {
   LSP: number; LCP: number; T0: number; name: string; desc: string;
 }> = {
-  crimson:       { LSP: 1300, LCP: 50, T0: 37.0, name: '克瑞森无核', desc: '耐热中等，LSP 适中' },
-  'summer-black':{ LSP: 1400, LCP: 40, T0: 36.0, name: '夏黑',       desc: '喜光，LSP 较高' },
-  'shine-muscat':{ LSP: 1200, LCP: 60, T0: 38.0, name: '阳光玫瑰',   desc: '耐热较好，LSP 偏低' },
-  kyoho:         { LSP: 1100, LCP: 55, T0: 35.5, name: '巨峰',       desc: '耐热偏弱，T0 较低' },
-  'red-globe':   { LSP: 1250, LCP: 45, T0: 37.5, name: '红地球',     desc: '耐热较好，LSP 适中' },
+  crimson:              { LSP: 1300, LCP: 50, T0: 37.0, name: '克瑞森无核', desc: '耐热中等，LSP 适中，晚熟鲜食' },
+  'summer-black':       { LSP: 1400, LCP: 40, T0: 36.0, name: '夏黑',       desc: '喜光，LSP 较高，早熟无核' },
+  'shine-muscat':       { LSP: 1200, LCP: 60, T0: 38.0, name: '阳光玫瑰',   desc: '耐热较好，LSP 偏低，高档品种' },
+  kyoho:                { LSP: 1100, LCP: 55, T0: 35.5, name: '巨峰',       desc: '耐热偏弱，T0 较低，主栽四倍体' },
+  'red-globe':          { LSP: 1250, LCP: 45, T0: 37.5, name: '红地球',     desc: '耐热较好，LSP 适中，晚熟耐运' },
+  fujiminori:           { LSP: 1150, LCP: 50, T0: 35.0, name: '藤稔',       desc: '耐热弱，果大，需精细温控' },
+  'hutai-8':            { LSP: 1280, LCP: 48, T0: 36.5, name: '户太八号',   desc: '耐热中等，抗病强，陕西主栽' },
+  'nina-queen':         { LSP: 1350, LCP: 42, T0: 36.5, name: '妮娜皇后',   desc: '喜光，高糖度，着色需控温' },
+  'centennial-seedless':{ LSP: 1320, LCP: 46, T0: 37.5, name: '世纪无核',   desc: '耐热较好，中熟无核' },
+  'autumn-royal':       { LSP: 1260, LCP: 52, T0: 37.0, name: '秋黑',       desc: '耐热中等，晚熟，抗逆性较强' },
 };
 
 /** 天气/大棚默认值（夏季高温典型场景） */

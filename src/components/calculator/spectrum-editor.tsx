@@ -146,6 +146,13 @@ export function SpectrumEditor() {
   const strokeAxis = isDark ? '#ffffff60' : '#00000060'
   const textFill = isDark ? '#ffffffaa' : '#000000aa'
 
+  const applyPreset = (presetKey: string) => {
+    const preset = CONFIG.SPECTRAL_PRESETS.find((p) => p.key === presetKey)
+    if (preset) {
+      setParams({ spectrumPoints: preset.points.map((p) => ({ ...p })) })
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -153,6 +160,24 @@ export function SpectrumEditor() {
         <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={reset}>
           <RotateCcw className="h-3 w-3 mr-1" /> 恢复默认
         </Button>
+      </div>
+
+      {/* 光谱预设库 */}
+      <div className="flex flex-wrap gap-1.5">
+        {CONFIG.SPECTRAL_PRESETS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => applyPreset(p.key)}
+            className="group inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm"
+            title={p.desc}
+          >
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-full border border-border"
+              style={{ backgroundColor: p.color }}
+            />
+            {p.name}
+          </button>
+        ))}
       </div>
 
       <div className="rounded-md border bg-card p-2">

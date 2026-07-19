@@ -14,7 +14,10 @@ export type CalcMode = 'table' | 'k';
 export type TableSubMode = 'full' | 'spectral';
 
 /** 品种预设键 */
-export type PresetKey = 'crimson' | 'summer-black' | 'shine-muscat' | 'kyoho' | 'red-globe' | 'custom';
+export type PresetKey =
+  | 'crimson' | 'summer-black' | 'shine-muscat' | 'kyoho' | 'red-globe'
+  | 'fujiminori' | 'hutai-8' | 'nina-queen' | 'centennial-seedless'
+  | 'autumn-royal' | 'custom';
 
 /** 产品表行（表格模式） */
 export interface ProductRow {

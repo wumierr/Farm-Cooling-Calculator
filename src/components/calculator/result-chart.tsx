@@ -5,8 +5,10 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ReferenceArea, ReferenceDot, Legend,
 } from 'recharts'
+import { MousePointerClick, Trash2 } from 'lucide-react'
 import { useCalculatorStore } from './store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import type { ResultPoint } from '@/lib/calculator'
 
@@ -15,7 +17,10 @@ interface ChartDatum extends ResultPoint {
 }
 
 export function ResultChart() {
-  const { output, strategies, plateau } = useCalculatorStore()
+  const {
+    output, strategies, plateau,
+    addCustomStrategy, removeCustomStrategy, clearCustomStrategies,
+  } = useCalculatorStore()
 
   const data: ChartDatum[] = React.useMemo(() => {
     if (!output?.results) return []
@@ -47,19 +52,40 @@ export function ResultChart() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base sm:text-[17px] flex items-center justify-between">
-          <span>综合效益曲线 Y = A_rel × (1 − L)</span>
-          {hasPlateau && (
-            <span className="text-xs font-normal text-muted-foreground">
-              黄色带 = 近优区间
+        <CardTitle className="text-base sm:text-[17px] flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5">
+            综合效益曲线 Y = A_rel × (1 − L)
+          </span>
+          <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+            {hasPlateau && <span>黄色带 = 近优区间</span>}
+            <span className="hidden sm:inline-flex items-center gap-1">
+              <MousePointerClick className="h-3 w-3" />
+              点击曲线添加对比点
             </span>
-          )}
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[340px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 24, bottom: 8, left: 0 }}>
+            <LineChart
+              data={data}
+              margin={{ top: 8, right: 24, bottom: 8, left: 0 }}
+              onClick={(e: { activePayload?: Array<{ payload: ChartDatum }> } | null) => {
+                if (e?.activePayload?.[0]?.payload) {
+                  const datum = e.activePayload[0].payload
+                  // 若已有该 R 的自定义点 → 删除；否则添加
+                  const exists = strategies.some(
+                    (s) => s.type === 'custom' && Math.abs(s.data.R - datum.R) < 0.005,
+                  )
+                  if (exists) {
+                    removeCustomStrategy(datum.R)
+                  } else {
+                    addCustomStrategy(datum.R)
+                  }
+                }
+              }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="Rlabel"
@@ -169,14 +195,30 @@ export function ResultChart() {
             <span className="text-muted-foreground">光合保留率 A_rel</span>
           </div>
           {strategies.map((s) => (
-            <div key={s.id} className="flex items-center gap-1.5">
+            <div
+              key={s.id}
+              className={`flex items-center gap-1.5 ${s.type === 'custom' ? 'cursor-pointer hover:opacity-70' : ''}`}
+              onClick={() => {
+                if (s.type === 'custom') removeCustomStrategy(s.data.R)
+              }}
+              title={s.type === 'custom' ? '点击移除' : undefined}
+            >
               <span
                 className="inline-block w-2.5 h-2.5 rounded-full border-2 border-background"
                 style={{ backgroundColor: s.color }}
               />
               <span className="text-muted-foreground">{s.name}</span>
+              {s.type === 'custom' && <Trash2 className="h-3 w-3 text-destructive" />}
             </div>
           ))}
+          {strategies.some((s) => s.type === 'custom') && (
+            <Button
+              variant="ghost" size="sm" className="h-6 text-xs ml-auto"
+              onClick={clearCustomStrategies}
+            >
+              <Trash2 className="h-3 w-3 mr-1" /> 清除自定义
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
