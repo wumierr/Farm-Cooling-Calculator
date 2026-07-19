@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=降温剂计算器-停止
+Comment=停止本地开发服务器
+Exec=/home/z/my-project/serve.sh stop
+Icon=/home/z/my-project/public/icon-192.png
+Terminal=true
+Type=Application
+Categories=Utility;

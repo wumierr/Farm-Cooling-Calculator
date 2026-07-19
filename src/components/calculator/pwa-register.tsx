@@ -17,7 +17,9 @@ export function PWARegister() {
   const [swRegistered, setSwRegistered] = React.useState(false)
 
   // 注册 Service Worker
+  // APK 模式（file:// 协议）下跳过，避免安全异常
   React.useEffect(() => {
+    if (window.location.protocol === 'file:') return // APK 环境
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
       navigator.serviceWorker.register('/sw.js').then(() => {
         setSwRegistered(true)

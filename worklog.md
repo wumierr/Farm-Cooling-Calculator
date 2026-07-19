@@ -1027,3 +1027,77 @@ src/components/calculator/
 4. **P2**：进一步优化内存占用（减少 Recharts 组件或用 lighter 替代）
 5. **P3**：多语言（next-intl 英文版）
 6. **P3**：跨设备配方同步（Prisma + API）
+
+---
+
+## v3.2 迭代记录（2026-07-19 快捷启停 + APK 打包环境）
+
+### 项目当前状态：✅ 稳定可用，新增快捷启停脚本 + APK 打包环境
+- 开发服务器运行正常，ESLint 通过
+- Web 模式不受 APK 适配影响
+
+### 本轮完成的工作
+
+#### 目标 1：快捷启停脚本 + 桌面快捷方式
+- **serve.sh** — 一键管理脚本：
+  - `./serve.sh start` — 启动开发服务器（自动等待就绪，最多 30 秒）
+  - `./serve.sh stop` — 停止服务器（PID + 端口双重定位）
+  - `./serve.sh restart` — 重启
+  - `./serve.sh status` — 查看运行状态 + HTTP 响应
+  - `./serve.sh open` — 浏览器打开页面
+  - PID 文件管理（`.server.pid`）+ 日志输出（`dev.log`）
+- **桌面快捷方式**（.desktop 文件）：
+  - `启动服务.desktop` — 双击启动服务
+  - `停止服务.desktop` — 双击停止服务
+  - `打开网页.desktop` — 双击打开浏览器
+  - `打包APK.desktop` — 双击一键打包 APK
+
+#### 目标 2：APK 打包环境（apk-build/ 文件夹）
+- **关键决策**：文件夹名为 `apk-build` 而非 `app`（Next.js App Router 会将根目录 `app/` 识别为路由目录，与 `src/app/` 冲突导致 404）
+- **Capacitor 适配**：
+  - `next.config.ts` 条件配置：`CAPACITOR_BUILD=1` 时启用静态导出 + 相对路径 + 关闭图片优化
+  - `pwa-register.tsx` 添加 `file://` 协议检测，APK 模式下跳过 SW 注册
+  - dev 模式完全不受影响
+- **依赖安装**：`@capacitor/cli` + `@capacitor/core` + `@capacitor/android` + `@ea-utilities/build-capacitor`
+- **apk-build/ 文件结构**：
+  - `capacitor.config.json` — appId: com.grape.coolingcalc, webDir: ../out
+  - `build-apk.sh` — 一键打包脚本（5 步：静态构建 → Capacitor 初始化 → 资源同步 → 编译 APK → 检查产物）
+  - `README.md` — 说明文档
+- **打包流程**：`./apk-build/build-apk.sh` → 产物 `apk-build/android/app/build/outputs/apk/debug/app-debug.apk`
+
+### 验证结果
+| 检查项 | 结果 |
+|--------|------|
+| serve.sh start | ✅ 启动成功，HTTP 200 |
+| serve.sh stop | ✅ 停止成功 |
+| serve.sh status | ✅ 状态正确 |
+| 桌面快捷方式 | ✅ 4 个 .desktop 文件创建 |
+| next.config dev 模式 | ✅ HTTP 200，不受影响 |
+| next.config APK 模式 | ✅ CAPACITOR_BUILD=1 时启用 export |
+| PWA file:// 跳过 | ✅ 代码就绪 |
+| apk-build 文件夹 | ✅ 无路由冲突 |
+| ESLint | ✅ 通过 |
+
+### 文件结构更新
+```
+项目根目录/
+├─ serve.sh                   # ★v3.2 快捷启停脚本
+├─ 启动服务.desktop            # ★v3.2 桌面快捷方式
+├─ 停止服务.desktop            # ★v3.2
+├─ 打开网页.desktop            # ★v3.2
+├─ 打包APK.desktop            # ★v3.2
+├─ next.config.ts             # ★v3.2 条件 Capacitor 配置
+├─ apk-build/                 # ★v3.2 APK 打包环境
+│  ├─ capacitor.config.json   # Capacitor 配置
+│  ├─ build-apk.sh            # 一键打包脚本
+│  └─ README.md               # 说明文档
+└─ src/
+   ├─ app/layout.tsx          # ★v3.2 保持原样（PWARegister 内部跳过 file://）
+   └─ components/calculator/pwa-register.tsx  # ★v3.2 file:// 协议检测
+```
+
+### 下一阶段建议优先事项
+1. **P0**：实际执行 `./apk-build/build-apk.sh` 验证 APK 打包流程（需网络下载 JDK/SDK）
+2. **P1**：PWA 离线实际测试
+3. **P2**：APK 正式签名（生产分发）
+4. **P3**：多语言

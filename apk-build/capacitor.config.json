@@ -1,0 +1,11 @@
+{
+  "appId": "com.grape.coolingcalc",
+  "appName": "降温剂计算器",
+  "webDir": "../out",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
