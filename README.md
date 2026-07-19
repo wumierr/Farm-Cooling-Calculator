@@ -17,35 +17,36 @@
 
 ## 🚀 本地使用
 
-### 命令行（Windows）
+### 双击快捷方式（推荐）
+
+| 双击文件 | 功能 |
+|---------|------|
+| `启动服务.vbs` | 启动服务 + 自动打开浏览器 |
+| `停止服务.vbs` | 停止服务 |
+| `打开网页.vbs` | 打开浏览器（服务未运行时自动启动） |
+| `打包APK.vbs` | 一键打包 Android APK |
+| `推送GitHub.vbs` | 一键推送到 GitHub |
+| `部署公网.vbs` | 一键部署到 Cloudflare Pages |
+
+### 首次使用
 
 ```cmd
-bun install              :: 安装依赖
-serve.bat start          :: 启动服务
-serve.bat open           :: 打开浏览器
-serve.bat stop           :: 停止服务
-serve.bat status         :: 查看状态
+bun install
 ```
 
 ## 📱 APK 打包
 
-```cmd
-apk-build\build-apk.bat
-```
+双击 `打包APK.vbs`，产物在 `apk-build\android\app\build\outputs\apk\debug\app-debug.apk`。
 
-产物：`apk-build\android\app\build\outputs\apk\debug\app-debug.apk`
+## 🌐 公网部署
 
-APK 安装后离线可用，无需网络。
+**方式一**：双击 `部署公网.vbs`
 
-## 🌐 公网部署（Cloudflare Pages）
-
-```cmd
-deploy-cloudflare.bat
-```
-
-或手动配置 Cloudflare Pages（推荐自动部署）：
+**方式二**（推荐自动部署）：在 Cloudflare Pages 连接 GitHub 仓库，设置：
 - **Build command**: `set DEPLOY_TARGET=cloudflare && bun run build`
 - **Output directory**: `out`
+
+之后每次双击 `推送GitHub.vbs` 推送代码，Cloudflare 自动部署。
 
 ## 🏗️ 技术栈
 
