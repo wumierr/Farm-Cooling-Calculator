@@ -1,35 +1,36 @@
 @echo off
 chcp 65001 >nul 2>&1
-title 部署到 Cloudflare
+title Deploy to Cloudflare
 
 echo ============================================================
-echo   正在构建并部署到 Cloudflare Pages...
+echo   Building and deploying to Cloudflare Pages...
 echo ============================================================
 
-set DEPLOY_TARGET=cloudflare
-call bun run build
+:: Build with Cloudflare static export config
+call bun run build:cloudflare
+
 if not exist out (
-    echo [失败] 构建失败
+    echo [FAIL] Build failed — no "out" directory.
     pause
     exit /b 1
 )
 
+:: Install wrangler if not present
 where wrangler >nul 2>&1
 if %errorlevel% neq 0 (
-    echo 安装 wrangler...
-    call bun add -d wrangler
+    echo Installing wrangler...
+    call npm install -g wrangler
 )
 
-echo 部署中...
-call npx wrangler pages deploy out --project-name=farm-cooling-calculator
+echo Deploying to Cloudflare Pages...
+call npx wrangler pages deploy out --project-name=farm-cooling-calculator --branch=main
 
-if %errorlevel%==0 (
+if %errorlevel% equ 0 (
     echo.
     echo ============================================================
-    echo   部署成功！
-    echo   访问: https://farm-cooling-calculator.pages.dev
+    echo   Deployment successful!
     echo ============================================================
 ) else (
-    echo 部署失败
+    echo Deployment failed.
 )
 pause

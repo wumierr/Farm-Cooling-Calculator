@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul 2>&1
-title 推送到 GitHub
+title Push to GitHub
 
 set REPO=https://github.com/wumierr/Farm-Cooling-Calculator.git
 
@@ -15,13 +15,46 @@ if %errorlevel% neq 0 (
     git remote set-url origin %REPO%
 )
 
+:: Stage all tracked+new files (respects .gitignore)
 git add -A
-git commit -m "更新项目" >nul 2>&1
+
+:: Check if there are staged changes
+git diff --cached --quiet
+if %errorlevel% equ 0 (
+    echo Nothing to commit.
+    timeout /t 2 /nobreak >nul
+    exit /b 0
+)
+
+echo Committing changes...
+git commit -m "Update project"
+
+if %errorlevel% neq 0 (
+    echo Commit failed.
+    pause
+    exit /b 1
+)
+
+:: Pull latest, rebase local on top
+echo Syncing with remote...
+git pull origin main --rebase --autostash
+
+if %errorlevel% neq 0 (
+    echo Pull failed — check for conflicts.
+    pause
+    exit /b 1
+)
+
+:: Push to main
 git push -u origin main
 
-if %errorlevel%==0 (
-    echo 推送成功！
+if %errorlevel% equ 0 (
+    echo.
+    echo ============================================================
+    echo   Push successful!
+    echo   Cloudflare Pages will auto-deploy from this branch.
+    echo ============================================================
 ) else (
-    echo 推送失败，请检查 Git 配置
+    echo Push failed. Check your network or GitHub credentials.
 )
 pause
