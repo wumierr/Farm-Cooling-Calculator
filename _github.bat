@@ -17,7 +17,17 @@ if %errorlevel% neq 0 (
 
 git add -A
 git commit -m "Update project" >nul 2>&1
-git push -u origin main
+
+:: Try to pull remote changes (allow unrelated histories, auto-stash)
+echo Pulling latest changes from remote...
+git pull origin main --allow-unrelated-histories --rebase --autostash >nul 2>&1
+
+if %errorlevel% neq 0 (
+    echo Pull failed, force pushing local changes to remote...
+    git push -f -u origin main
+) else (
+    git push -u origin main
+)
 
 if %errorlevel%==0 (
     echo Push successful!
