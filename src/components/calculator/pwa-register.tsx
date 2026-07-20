@@ -16,8 +16,8 @@ export function PWARegister() {
   const [isOnline, setIsOnline] = React.useState(true)
   const [swRegistered, setSwRegistered] = React.useState(false)
 
-  // 注册 Service Worker
-  // APK 模式（file:// 协议）下跳过，避免安全异常
+  // 注册 Service Worker（仅生产环境）
+  // dev 模式主动注销残留 SW，避免 Turbopack 重编译导致页面自动刷新
   React.useEffect(() => {
     if (window.location.protocol === 'file:') return // APK 环境
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
@@ -27,8 +27,10 @@ export function PWARegister() {
         console.warn('[PWA] SW registration failed:', err)
       })
     } else if ('serviceWorker' in navigator) {
-      // dev 环境也注册（便于测试），但容忍失败
-      navigator.serviceWorker.register('/sw.js').then(() => setSwRegistered(true)).catch(() => {})
+      // dev 模式：主动注销之前可能注册的 SW（治本）
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister())
+      })
     }
   }, [])
 
