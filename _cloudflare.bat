@@ -6,30 +6,32 @@ echo ============================================================
 echo   Building and deploying to Cloudflare Pages...
 echo ============================================================
 
+:: Build with Cloudflare static export config
 set DEPLOY_TARGET=cloudflare
 call bun run build
+
 if not exist out (
-    echo [FAIL] Build failed
+    echo [FAIL] Build failed — no "out" directory.
     pause
     exit /b 1
 )
 
+:: Install wrangler if not present
 where wrangler >nul 2>&1
 if %errorlevel% neq 0 (
     echo Installing wrangler...
-    call bun add -d wrangler
+    call npm install -g wrangler
 )
 
-echo Deploying...
-call npx wrangler pages deploy out --project-name=farm-cooling-calculator
+echo Deploying to Cloudflare Pages...
+call npx wrangler pages deploy out --project-name=farm-cooling-calculator --branch=main
 
-if %errorlevel%==0 (
+if %errorlevel% equ 0 (
     echo.
     echo ============================================================
     echo   Deployment successful!
-    echo   Visit: https://farm-cooling-calculator.pages.dev
     echo ============================================================
 ) else (
-    echo Deployment failed
+    echo Deployment failed.
 )
 pause

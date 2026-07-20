@@ -25,7 +25,7 @@
 | `停止服务.vbs` | 停止服务 |
 | `打开网页.vbs` | 打开浏览器（服务未运行时自动启动） |
 | `打包APK.vbs` | 一键打包 Android APK |
-| `推送GitHub.vbs` | 一键推送到 GitHub |
+| `推送GitHub.vbs` | 一键推送到 GitHub（main 分支） |
 | `部署公网.vbs` | 一键部署到 Cloudflare Pages |
 
 ### 首次使用，在项目文件夹中打开
@@ -38,15 +38,25 @@ bun install
 
 双击 `打包APK.vbs`，产物在 `apk-build\android\app\build\outputs\apk\debug\app-debug.apk`。
 
-## 🌐 公网部署
+## 🌐 公网部署（Cloudflare Pages）
 
-**方式一**：双击 `部署公网.vbs`
+### 自动部署（推荐）
 
-**方式二**（推荐自动部署）：在 Cloudflare Pages 连接 GitHub 仓库，设置：
-- **Build command**: `set DEPLOY_TARGET=cloudflare && bun run build`
-- **Output directory**: `out`
+1. 在 Cloudflare Pages 连接 GitHub 仓库 `wumierr/Farm-Cooling-Calculator`
+2. 设置：
+   - **Build command**: `set DEPLOY_TARGET=cloudflare && bun run build`
+   - **Output directory**: `out`
+3. 之后每次双击 `推送GitHub.vbs` 推送代码到 main 分支，Cloudflare 自动部署。
 
-之后每次双击 `推送GitHub.vbs` 推送代码，Cloudflare 自动部署。
+### 手动部署
+
+双击 `部署公网.vbs` — 本地构建 + 通过 Wrangler CLI 部署。
+
+### 关于 CF 部署错误
+
+如果你看到 `Missing entry-point` 错误，说明 Cloudflare 配置选错了模式：
+- 需要在 Cloudflare Pages Dashboard 中连接 Git 仓库
+- Pages 会按照 Build command 自动构建，**不需要**在 Dashboard 里手动设置 Wrangler/Workers
 
 ## 🏗️ 技术栈
 
@@ -74,7 +84,6 @@ src/
    ├─ calculator/          # 业务组件
    └─ ui/                  # shadcn/ui 基础组件
 
-apk-build/                 # APK 打包环境
 public/                    # 静态资源（PWA 图标/manifest/SW）
 ```
 
