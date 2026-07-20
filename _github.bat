@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul 2>&1
-title 推送到 GitHub
+title Push to GitHub
 
 set REPO=https://github.com/wumierr/Farm-Cooling-Calculator.git
 
@@ -16,12 +16,12 @@ if %errorlevel% neq 0 (
 )
 
 git add -A
-git commit -m "更新项目" >nul 2>&1
+git commit -m "Update project" >nul 2>&1
 git push -u origin main
 
 if %errorlevel%==0 (
-    echo 推送成功！
+    echo Push successful!
 ) else (
-    echo 推送失败，请检查 Git 配置
+    echo Push failed, please check Git configuration
 )
 pause

@@ -28,7 +28,7 @@
 | `推送GitHub.vbs` | 一键推送到 GitHub |
 | `部署公网.vbs` | 一键部署到 Cloudflare Pages |
 
-### 首次使用
+### 首次使用，在项目文件夹中打开
 
 ```cmd
 bun install

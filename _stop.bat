@@ -1,14 +1,16 @@
 @echo off
-chcp 65001 >nul 2>&1
-title 停止服务
-
-:: 查找并终止占用 3000 端口的进程
+title Stop Service
+set killed=0
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 " ^| findstr "LISTENING"') do (
+    echo Stopping process on port 3000 (PID: %%a)...
     taskkill /f /pid %%a >nul 2>&1
+    if not errorlevel 1 set /a killed+=1
 )
-:: 兜底：终止 bun/node 进程
 taskkill /f /im bun.exe >nul 2>&1
 taskkill /f /im node.exe >nul 2>&1
-
-echo 服务已停止。
-timeout /t 1 /nobreak >nul
+if %killed% gtr 0 (
+    echo Service stopped.
+) else (
+    echo No service was running on port 3000.
+)
+timeout /t 2 /nobreak >nul

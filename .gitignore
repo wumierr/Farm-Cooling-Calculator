@@ -50,6 +50,10 @@ db/
 # ---- 开发文档（可选：保留 worklog.md 用于协作）----
 # worklog.md
 
+# ---- 防止 Windows 设备文件名被误写入（如 bash 下 >nul 生成的物理文件）----
+nul
+NUL
+
 # ---- 系统文件 ----
 .DS_Store
 *.pem
