@@ -16,9 +16,11 @@ export function PWARegister() {
   const [isOnline, setIsOnline] = React.useState(true)
   const [swRegistered, setSwRegistered] = React.useState(false)
 
-  // 注册 Service Worker
-  // APK 模式（file:// 协议）下跳过，避免安全异常
-  // dev 模式不注册 SW，避免 skipWaiting()+clients.claim() 导致 Turbopack 重编译时自动刷新页面
+  // 注册 Service Worker（仅生产环境）
+  // dev 模式不注册 SW，因为 skipWaiting()+clients.claim() 会导致：
+  // 1. Turbopack 重编译时自动刷新页面
+  // 2. 浏览器底部闪烁提醒
+  // 如果浏览器之前注册过 SW 需要手动在 DevTools -> Application -> Service Workers 中 Unregister
   React.useEffect(() => {
     if (window.location.protocol === 'file:') return // APK 环境
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
@@ -26,6 +28,11 @@ export function PWARegister() {
         setSwRegistered(true)
       }).catch((err) => {
         console.warn('[PWA] SW registration failed:', err)
+      })
+    } else if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'production') {
+      // 开发模式：主动注销之前可能注册的 SW（治本）
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister())
       })
     }
   }, [])
