@@ -1,9 +1,7 @@
 @echo off
-title Start Service
-echo Starting dev server...
+title Farm Cooling Server
+echo Server running on http://localhost:3000
+echo Close this window or press Ctrl+C to stop.
 echo.
-echo When done, close this window or press Ctrl+C to stop.
-echo.
-:: Keep BAT alive — this prevents orphaned console windows from bun
-:: The dev server runs as child of this cmd process
-bun run dev 2>&1
+cd /d "%~dp0"
+"D:\nodejs\bun" run dev
