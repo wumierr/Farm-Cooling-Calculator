@@ -1,5 +1,5 @@
+' 双击停止服务（静默）
 Set WshShell = CreateObject("WScript.Shell")
-Set fso = CreateObject("Scripting.FileSystemObject")
-WshShell.CurrentDirectory = fso.GetParentFolderName(WScript.ScriptFullName)
-WshShell.Run "_stop.bat", 1, True
-MsgBox "Service stopped.", vbInformation, "Cooling Calculator"
+WshShell.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run "_stop.bat", 0, True
+MsgBox "服务已停止", vbInformation, "降温剂计算器"
