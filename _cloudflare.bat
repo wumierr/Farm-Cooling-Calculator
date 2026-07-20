@@ -7,8 +7,7 @@ echo   Building and deploying to Cloudflare Pages...
 echo ============================================================
 
 :: Build with Cloudflare static export config
-set DEPLOY_TARGET=cloudflare
-call bun run build
+call bun run build:cloudflare
 
 if not exist out (
     echo [FAIL] Build failed — no "out" directory.

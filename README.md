@@ -44,7 +44,7 @@ bun install
 
 1. 在 Cloudflare Pages 连接 GitHub 仓库 `wumierr/Farm-Cooling-Calculator`
 2. 设置：
-   - **Build command**: `set DEPLOY_TARGET=cloudflare && bun run build`
+   - **Build command**: `bun run build:cloudflare`
    - **Output directory**: `out`
 3. 之后每次双击 `推送GitHub.vbs` 推送代码到 main 分支，Cloudflare 自动部署。
 
