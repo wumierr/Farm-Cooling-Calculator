@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul 2>&1
-title Push to GitHub (Linux branch - Force)
+title Push to GitHub (Linux branch - SSH)
 
-set REPO=https://github.com/wumierr/Farm-Cooling-Calculator.git
+set REPO=git@github.com:wumierr/Farm-Cooling-Calculator.git
 set BRANCH=Linux
 
 if not exist .git (
@@ -16,10 +16,17 @@ if %errorlevel% neq 0 (
     git remote set-url origin %REPO%
 )
 
+:: 检查 SSH 连接是否可用（可选）
+echo Testing SSH connection to GitHub...
+ssh -T git@github.com -o ConnectTimeout=5 >nul 2>&1
+if %errorlevel% neq 0 (
+    echo WARNING: SSH connection to GitHub seems slow or blocked.
+    echo Will attempt anyway...
+)
+
 :: 添加所有变更
 git add -A
 
-:: 检查是否有变更
 git diff --cached --quiet
 if %errorlevel% equ 0 (
     echo No local changes to commit.
@@ -33,20 +40,26 @@ if %errorlevel% equ 0 (
     )
 )
 
-:: ========== 关键修改：不管有没有新提交，都执行推送 ==========
-echo Syncing with remote...
-git pull origin %BRANCH% --rebase --autostash -X ours
-
+:: 检查远程分支是否存在
+echo Checking remote branch '%BRANCH%'...
+git ls-remote --heads origin %BRANCH% >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Pull failed, trying merge pull...
-    git pull origin %BRANCH% --no-rebase -X ours
-    if %errorlevel% neq 0 (
-        echo Pull failed. You may need to force push.
-        pause
-        exit /b 1
-    )
+    echo Remote branch does not exist or network error.
+    echo Will attempt to create it by push.
+    goto :push
 )
 
+:: 拉取远程（本地优先）
+echo Pulling latest changes (local wins conflicts)...
+git pull origin %BRANCH% --rebase --autostash -X ours
+if %errorlevel% neq 0 (
+    echo ERROR: Pull failed.
+    echo Try pushing with force if you are sure: git push -f origin %BRANCH%
+    pause
+    exit /b 1
+)
+
+:push
 echo Pushing to remote branch %BRANCH%...
 git push -u origin %BRANCH%
 
@@ -56,6 +69,7 @@ if %errorlevel% equ 0 (
     echo   Push successful! (Branch: %BRANCH%)
     echo ============================================================
 ) else (
-    echo Push failed. Check network or credentials.
+    echo Push failed. Check SSH key or network.
+    pause
 )
 pause
