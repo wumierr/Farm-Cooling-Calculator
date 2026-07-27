@@ -1,0 +1,64 @@
+# ============================================================
+#  farm-cooling.service — systemd 服务单元（standalone Node 版）
+#
+#  安装:
+#    ./scripts/build-standalone.sh
+#    sudo useradd -r -s /usr/sbin/nologin webapp     # 若还没有该用户
+#    sudo mkdir -p /opt/farm-cooling
+#    sudo cp -r .next/standalone/. /opt/farm-cooling/
+#    sudo chown -R webapp:webapp /opt/farm-cooling
+#    sudo cp deploy/farm-cooling.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now farm-cooling
+#
+#  常用:
+#    sudo systemctl status  farm-cooling
+#    sudo systemctl restart farm-cooling
+#    sudo journalctl -u farm-cooling -f
+#
+#  ⚠ 只想跑静态版的话不需要这个 —— 用 nginx/Caddy 直接托管 out/ 更省资源。
+# ============================================================
+
+[Unit]
+Description=Farm Cooling Calculator - Next.js standalone server
+Documentation=https://github.com/wumierr/Farm-Cooling-Calculator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=webapp
+Group=webapp
+WorkingDirectory=/opt/farm-cooling
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# 前面有 nginx/Caddy 反代时用 127.0.0.1；直接对公网暴露时改 0.0.0.0
+Environment=HOSTNAME=127.0.0.1
+Environment=NEXT_TELEMETRY_DISABLED=1
+
+ExecStart=/usr/bin/node /opt/farm-cooling/server.js
+
+Restart=always
+RestartSec=3
+
+# ---- 安全加固 ----
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/farm-cooling
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=512M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=farm-cooling
+
+[Install]
+WantedBy=multi-user.target

@@ -4,7 +4,8 @@
 # 用法: ./deploy-cloudflare.sh
 # ============================================================
 
-set -e
+# pipefail：管道里 next build 失败不会被 `| tail` 吞成 0（原来的坑）
+set -eo pipefail
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'

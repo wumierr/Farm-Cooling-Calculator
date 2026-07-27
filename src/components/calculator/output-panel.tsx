@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { useCalculatorStore } from './store'
 import { ResultChart } from './result-chart'
+import { LightResponseChart } from './light-response-chart'
 import { CostBenefitChart } from './cost-benefit-chart'
 import { STRATEGY_DEFS } from '@/lib/calculator'
 import type { Warning } from '@/lib/calculator'
@@ -596,6 +597,8 @@ export function OutputPanel() {
   return (
     <div className="space-y-3">
       <ResultChart />
+
+      <LightResponseChart />
 
       <Warnings warnings={envWarnings} />
 

@@ -1,0 +1,81 @@
+# ============================================================
+#  docker-compose.yml — 一条命令跑起来
+#
+#  用法（在项目根目录执行）:
+#    # 静态版（推荐，内存 ~10MB）
+#    docker compose -f deploy/docker-compose.yml up -d --build web-static
+#
+#    # standalone 版（带 Node 服务器，内存 ~120MB）
+#    docker compose -f deploy/docker-compose.yml --profile node up -d --build
+#
+#    # 查看日志 / 停止
+#    docker compose -f deploy/docker-compose.yml logs -f
+#    docker compose -f deploy/docker-compose.yml down
+#
+#  本项目所有计算都在浏览器里跑，没有服务端逻辑，
+#  所以默认推荐静态版 —— 更省资源、更快、更不容易出问题。
+# ============================================================
+
+services:
+  # ---------- 静态版（默认）----------
+  web-static:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.static
+    image: farm-cooling-calculator:static
+    container_name: farm-cooling
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # ---------- standalone 版（需要 --profile node 才启动）----------
+  web-node:
+    profiles: ["node"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: farm-cooling-calculator:node
+    container_name: farm-cooling-node
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ---------- 可选：Caddy 自动 HTTPS（有域名时启用）----------
+  # 启用步骤:
+  #   1. 注释掉上面 web-static 的 ports
+  #   2. 取消下面整段注释
+  #   3. 改 deploy/Caddyfile 里的域名，域名 A 记录指向本机公网 IP
+  #   4. docker compose -f deploy/docker-compose.yml up -d
+  #
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: farm-cooling-caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #     - "443:443/udp"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - web-static
+
+# volumes:
+#   caddy_data:
+#   caddy_config:

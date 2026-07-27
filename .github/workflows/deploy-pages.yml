@@ -1,0 +1,66 @@
+# ============================================================
+#  GitHub Pages 自动部署
+#
+#  启用方法:
+#    1. 仓库 Settings -> Pages -> Source 选 "GitHub Actions"
+#    2. 推一次代码
+#    3. 站点: https://<用户名>.github.io/<仓库名>/
+#
+#  ⚠ 注意: GitHub Pages 会把站点放在 /<仓库名>/ 子路径下，
+#    Next.js 需要知道这个前缀，所以下面用 NEXT_PUBLIC_BASE_PATH 传给构建。
+#    如果绑定了自定义域名（站点在根路径），把 basePath 那两行删掉即可。
+#
+#  国内访问速度一般，追求速度请用 deploy-cloudflare.yml。
+# ============================================================
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile || bun install
+
+      - name: 静态导出
+        env:
+          DEPLOY_TARGET: cloudflare
+          NEXT_TELEMETRY_DISABLED: '1'
+          # 子路径部署所需前缀；绑定自定义域名后删掉这一行
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+        run: bunx next build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

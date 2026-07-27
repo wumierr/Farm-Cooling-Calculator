@@ -1,0 +1,49 @@
+# ============================================================
+#  Dockerfile.static — 静态导出版（nginx 托管，最省资源）
+#
+#  本项目全部计算在浏览器端完成，没有服务端逻辑，
+#  所以完全可以静态导出后用 nginx 托管 —— 内存占用从 ~120MB 降到 ~10MB。
+#
+#  构建（在项目根目录执行）:
+#    docker build -f deploy/Dockerfile.static -t farm-cooling-static .
+#
+#  运行:
+#    docker run -d --name farm-cooling -p 8080:80 --restart unless-stopped farm-cooling-static
+#
+#  最终镜像约 50MB
+# ============================================================
+
+# ---------- Stage 1: 静态导出 ----------
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+
+COPY package.json ./
+COPY bun.loc[k] package-lock.jso[n] ./
+RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; \
+    else npm install --no-audit --no-fund; fi
+
+COPY . .
+
+# DEPLOY_TARGET=cloudflare 触发 next.config.ts 的静态导出分支
+ENV DEPLOY_TARGET=cloudflare
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx next build && test -d out
+
+# ---------- Stage 2: nginx ----------
+FROM nginx:1.27-alpine
+
+LABEL org.opencontainers.image.title="farm-cooling-calculator" \
+      org.opencontainers.image.description="葡萄大棚降温剂最佳配比计算器（静态版）" \
+      org.opencontainers.image.licenses="MIT"
+
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/out /usr/share/nginx/html
+RUN chown -R nginx:nginx /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

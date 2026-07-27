@@ -16,6 +16,12 @@ export {
 } from './advice';
 export type { CostBenefit } from './advice';
 export * from './multi-day';
+export {
+  computeLightResponse, efficiencyAt, LIGHT_MODELS,
+} from './light-response';
+export type {
+  LightModel, LightModelMeta, LightResponsePoint, LightResponseResult,
+} from './light-response';
 
 import type { CalcParams } from './types';
 import {

@@ -1101,3 +1101,82 @@ src/components/calculator/
 2. **P1**：PWA 离线实际测试
 3. **P2**：APK 正式签名（生产分发）
 4. **P3**：多语言
+
+---
+
+## v3.3 迭代记录（2026-07-26 全面评估 + 构建修复 + UI 重构 + 新图表）
+
+> 本轮为一次系统性评估与落地：代码质量、构建/依赖、算法再评估、UI 重构、新增可视化面板。
+> 完整方案见 `docs/评估与修复方案.md`。关键数字均用离线 Node 复算验证（真实 engine.ts）。
+
+### 1. 构建 / 依赖版本三错配修复（P0，APK 报错根因）
+- **根因**：`@capacitor/*@8` 需要 **JDK 21 + compileSdk 36 + Node 22**，而脚本/文档写的是
+  **JDK 17 + SDK 35 + Node 20**——三处全部对不上，`gradlew` 报 `invalid source release: 21`。
+- **方案 B（改动最小、最稳）**：`@capacitor/{core,cli,android}` 降到 **^7.4.3**——脚本本就装 SDK 35，
+  与 Cap 7 天然吻合；只需把 JDK 要求从 17 改成 21（Node 保持 18+ 即可）。
+- `scripts/build-apk.ps1`：JDK 检查/提示 17→21，新增非 21 版本告警；SDK 仍装 android-35（Cap 7 正确）。
+- `apk-build/build-apk.sh`：**重写**——① 不再用 `bun run build`（会触发 standalone 的 cp，export 模式必失败），
+  改走 `scripts/build-static.sh capacitor`；② `set -euo pipefail` 不再吞退出码；
+  ③ 去掉 `@ea-utilities/build-capacitor` 封装，直接 `gradlew assembleDebug`；④ 加 JDK 21 / SDK 前置检查。
+- `deploy-cloudflare.sh`：`set -e` → `set -eo pipefail`（`bun run build | tail` 不再吞失败）。
+- `package.json` `build` 脚本改为 export 安全：`next build && { cp … 2>/dev/null; …; true; }`；
+  新增 `build:standalone`（自建服务器用）。
+
+### 2. 依赖瘦身（P1，缩小版本冲突面 + 加快 install）
+- 扫描 `src/` 全量 import 得"真实依赖清单"，删除 **16 个零引用的脚手架遗留重依赖**：
+  `z-ai-web-dev-sdk / @mdxeditor/editor / react-syntax-highlighter / next-auth / next-intl /
+  @tanstack/react-query / @tanstack/react-table / @reactuses/core / framer-motion / react-markdown /
+  date-fns / uuid / zod / @dnd-kit/* / @hookform/resolvers / @ea-utilities/build-capacitor`。
+- 移除 **Prisma**（`prisma` + `@prisma/client`）：全项目仅 `src/lib/db.ts` 引用且无人调用——已将 db.ts
+  留空占位（纯客户端计算器不需要数据库）。删掉 `db:*` 脚本。
+- 保留所有 `@radix-ui/*` 及 6 个被未用 shadcn ui 文件引用的小依赖（cmdk/vaul/embla/input-otp/
+  react-day-picker/react-hook-form），避免删依赖却漏删 ui 文件导致构建失败。
+- **验证**：逐一核对"src 每个 import 都在 package.json"——全部 OK；78 个 ts/tsx 文件 bun 解析全过。
+
+### 3. 新增可视化面板：一天内光照 → 光合转化效率
+- 新纯函数模块 `src/lib/calculator/light-response.ts`：三种光响应模型
+  - `saturating` 光饱和型 → **平台**（引擎默认 M–M）
+  - `limiting` 光限制型 → **单峰**
+  - `photoinhibition` 光抑制型 → **双峰（午休）**
+  - 曲线下积分面积 = 全天累计光合；可叠加"施用遮阳后"（τ=1−R·k_PAR 压低进光）。
+- 新组件 `src/components/calculator/light-response-chart.tsx`（Recharts ComposedChart）：
+  模型切换按钮 + 叠加施用后开关 + 峰值参考线 + **Brush 缩放** + 触摸 tooltip（时刻/PAR/效率）+ 4 指标摘要。
+- **离线复算验证**（真实 dayShape，默认场景 R=29%）：
+  平台 area=13.47 / 单峰 8.76 / 双峰 9.44；双峰在施用遮阳后累计 9.44→**11.68**（遮阳缓解午休、全天反升）。
+
+### 4. UI 整体视觉重构
+- `globals.css`：刷新农业绿+暖阳琥珀主题令牌（提高对比度）、圆角 0.625→0.75rem、
+  背景柔光渐变、卡片 hover 边框+阴影、新增 `.glass`（玻璃页头）/`.text-gradient-brand`；
+  **保留全部既有 utility**（animate-*、scrollbar-thin、打印样式等），不破坏现有引用。
+- `calculator-client.tsx`：**新响应式 App Shell**——玻璃拟态页头 + 渐变品牌字；
+  **窄屏（<768px）Tab 切换「参数 / 结果与图表」**（用 `useIsMobile`），**宽屏左栏 sticky + 右主区**，
+  解决手机端超长滚动；横竖屏按断点自动重排。
+- 输入/输出面板内部逻辑保持不变（零回归），仅继承新主题；新图表挂进 `output-panel.tsx`。
+
+### 5. 算法再评估（结论：不改公式，优化"少算/缓存"）
+- 逐项体检气温/HHA/光合(M–M+LSP)/光谱(FC 样条)/优化，物理合理、数值已复算一致（R=29%,Y=0.9693）。
+- 更优拟合（非直角双曲线）落点选在**新可视化面板**做可切换展示，不动主引擎（符合"避免过度工程化"）。
+- 待办优化：`findOptimalR` 记忆化、成本曲线按需算、R 搜索自适应粒度（非关键降精度）。
+
+### 文档修正（与代码对齐）
+- `docs/DEPLOY.md`：环境表 JDK 17→**21**（本机 17.0.3.1 标注需升级）；SDK 35 标注 Cap 7；
+  补 Cap8 需 Node22+SDK36；更正 `bun run build | tail` 吞退出码的说明（已加 pipefail）。
+- `README.md` / `apk-build/README.md`：补 JDK 21 前置；修正 `./app/build-apk.sh`→`./apk-build/build-apk.sh`。
+
+### 已知限制 / 验证方式
+- 云端沙箱 npm registry 被封（403），**无法装依赖 / 跑 `next build`**。已用：① 离线 Node 复算纯函数
+  （engine + light-response 形态与数值均正确）；② bun 对 78 个 ts/tsx 全量解析（JSX/TS 语法零错）；
+  ③ 逐一核对 import 与 package.json 一致。**最终 `bun install` / `bun run build` / APK 需在本机执行**。
+
+### 本机验证清单（改动后请按序执行）
+1. `bun install`（package.json 变了，会重建 bun.lock；装依赖更快更少）
+2. `bun run lint`
+3. `bun run dev` → 逐屏看：宽屏分栏 / 窄屏 Tab 切换 / 新"光照→光合效率"面板三模型切换 + 缩放
+4. `scripts\build-static.ps1`（静态导出，验证 out/）
+5. 装 **JDK 21** 后 `scripts\build-apk.ps1 -InstallSdk -Mirror` 打 APK
+
+### 下一阶段建议
+1. **P1**：删未用 shadcn ui 文件 + 其 6 个小依赖（cmdk/vaul/embla/input-otp/react-day-picker/react-hook-form），彻底瘦身
+2. **P2**：拆 `output-panel.tsx`（622 行）、下沉 `getAdviceForR` 到 advice.ts、去重插值逻辑
+3. **P2**：`findOptimalR` 记忆化、成本曲线按需重算
+4. **P3**：升级到 Capacitor 8（需 Node 22 + SDK 36）或多语言

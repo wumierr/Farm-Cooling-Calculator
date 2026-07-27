@@ -1,0 +1,57 @@
+// ============================================================
+//  gradle-mirror.init.gradle — Gradle 依赖走阿里云镜像
+//
+//  国内直连 dl.google.com / repo.maven.apache.org 经常超时，
+//  加上这个能把首次构建从"半小时超时失败"变成"两三分钟"。
+//
+//  用法（scripts\build-apk.ps1 -Mirror 会自动加上）:
+//    gradlew assembleDebug --init-script ../../deploy/gradle-mirror.init.gradle
+// ============================================================
+
+def ALIYUN_GOOGLE  = 'https://maven.aliyun.com/repository/google'
+def ALIYUN_PUBLIC  = 'https://maven.aliyun.com/repository/public'
+def ALIYUN_CENTRAL = 'https://maven.aliyun.com/repository/central'
+def ALIYUN_PLUGIN  = 'https://maven.aliyun.com/repository/gradle-plugin'
+
+settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            clear()
+            maven { url ALIYUN_PLUGIN }
+            maven { url ALIYUN_GOOGLE }
+            maven { url ALIYUN_PUBLIC }
+            gradlePluginPortal()
+            google()
+            mavenCentral()
+        }
+    }
+    try {
+        settings.dependencyResolutionManagement {
+            repositories {
+                clear()
+                maven { url ALIYUN_GOOGLE }
+                maven { url ALIYUN_PUBLIC }
+                maven { url ALIYUN_CENTRAL }
+                google()
+                mavenCentral()
+            }
+        }
+    } catch (ignored) {
+        // Capacitor 生成的工程可能没用 dependencyResolutionManagement，走下面的 allprojects
+    }
+}
+
+allprojects {
+    buildscript {
+        repositories {
+            maven { url ALIYUN_PLUGIN }
+            maven { url ALIYUN_GOOGLE }
+            maven { url ALIYUN_PUBLIC }
+        }
+    }
+    repositories {
+        maven { url ALIYUN_GOOGLE }
+        maven { url ALIYUN_PUBLIC }
+        maven { url ALIYUN_CENTRAL }
+    }
+}

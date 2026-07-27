@@ -17,8 +17,10 @@
 在项目根目录执行：
 
 ```bash
-./app/build-apk.sh
+./apk-build/build-apk.sh
 ```
+
+> Windows 用户请改用 `scripts\build-apk.ps1 -InstallSdk -Mirror`（可自动装 SDK）。
 
 脚本会自动完成：
 1. 设置 `CAPACITOR_BUILD=1` 环境变量
@@ -42,7 +44,14 @@ apk-build/android/app/build/outputs/apk/debug/app-debug.apk
 
 ## 注意事项
 
-1. 首次打包会自动下载 JDK 和 Android SDK（约 500MB），需要网络
-2. 生成的 APK 使用 Debug 证书，适合内部分发
-3. 如需正式签名，准备 `.jks` 密钥库并修改构建参数为 `assembleRelease`
-4. APK 中已包含所有网页资源，安装后**离线可用**，无需网络
+1. **JDK 21 是硬要求**：Capacitor 7 打 Android 包强制 Java 21（不是 17），否则报
+   `invalid source release: 21`。装 [JDK 21](https://adoptium.net/temurin/releases/?version=21)
+   并设好 `JAVA_HOME`。
+2. **Android SDK**：需要 `platforms;android-35` + `build-tools;35.0.0`（Capacitor 7 对应 API 35）。
+   Windows 用 `build-apk.ps1 -InstallSdk` 可自动装；Linux/macOS 用 Android Studio 或 sdkmanager 装。
+3. 生成的 APK 使用 Debug 证书，适合内部分发。
+4. 如需正式签名，准备 `.jks` 密钥库并把 Gradle 任务改为 `assembleRelease`。
+5. APK 中已包含所有网页资源，安装后**离线可用**，无需网络。
+
+> 版本对照：Capacitor **7** → JDK 21 / SDK 35 / AGP 8.7.2 / Gradle 8.11.1（本项目当前）。
+> 若升级到 Capacitor **8** → 需 JDK 21 / **SDK 36** / AGP 8.13 / Gradle 8.14.3 / **Node 22+**。

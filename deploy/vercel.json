@@ -1,0 +1,38 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": [
+    "vercel.json — Vercel 部署配置",
+    "",
+    "用法 A（连 Git，全自动）:",
+    "  1. cp deploy/vercel.json ./vercel.json",
+    "  2. vercel.com -> Add New -> Project -> 选本仓库 -> Deploy",
+    "",
+    "用法 B（命令行直传）:",
+    "  npx vercel --prod",
+    "",
+    "注意 1: Vercel 原生支持 Next.js，其实不加这个文件也能部署（会用 SSR 模式）。",
+    "        这里显式配成静态导出，行为和其它平台一致，也更省额度。",
+    "注意 2: Vercel 在中国大陆访问不稳定，国内用户优先 Cloudflare Pages。"
+  ],
+  "buildCommand": "DEPLOY_TARGET=cloudflare next build",
+  "outputDirectory": "out",
+  "framework": "nextjs",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/_next/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    }
+  ]
+}

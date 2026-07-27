@@ -1,0 +1,60 @@
+# ============================================================
+#  Cloudflare Pages 自动部署
+#
+#  启用方法:
+#    1. Cloudflare 控制台 -> 个人资料 -> API 令牌 -> 创建令牌
+#       权限: 账户 -> Cloudflare Pages -> 编辑
+#    2. 复制账户 ID（Workers & Pages 概览页右侧）
+#    3. GitHub 仓库 Settings -> Secrets and variables -> Actions:
+#         CLOUDFLARE_API_TOKEN
+#         CLOUDFLARE_ACCOUNT_ID
+#    4. 推代码到 main 或 Linux 分支
+#
+#  站点: https://farm-cooling-calculator.pages.dev
+#
+#  ⚠ 更省事的路: Cloudflare Pages 控制台直接 "Connect to Git"，
+#    构建命令 `DEPLOY_TARGET=cloudflare npx next build`，输出目录 `out`，
+#    连本文件都不需要。
+# ============================================================
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main, Linux]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile || bun install
+
+      - name: 静态导出
+        env:
+          DEPLOY_TARGET: cloudflare
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: bunx next build
+
+      - name: 校验产物
+        run: test -d out && echo "out/ 共 $(find out -type f | wc -l) 个文件"
+
+      - name: 上传到 Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=farm-cooling-calculator --branch=main
